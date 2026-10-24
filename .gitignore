@@ -1,0 +1,21 @@
+# 运行时产物（本地生成，不入库）
+shots/
+会话/
+*.log
+__pycache__/
+*.pyc
+
+# 本地密钥与令牌（绝不能入库；配好后只在你自己机器上）
+pc_bridge.token
+配置.local.qdai
+
+# 本地模型（GB 级，用 配置.qdai 的 local_engine_model 指向即可）
+models/*
+!models/.gitkeep
+
+# 开发时临时文件
+.idea/
+.vscode/
+*.swp
+build/
+dist/

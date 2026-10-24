@@ -1,0 +1,10 @@
+name: browser-guide
+version: 0.1
+desc: 教 AI 正确使用内置浏览器（对齐 SKILLS 仓库语义）
+
+# 给模型的技能说明（经 SKILLS LIST 可见）
+1. 拿到网页任务先 BROWSER NAVIGATE <url>
+2. 再 BROWSER SNAPSHOT 拿"可交互元素编号表 + 正文摘要"（省 token，勿要 HTML）
+3. 点按 BROWSER CLICK <编号>；填表 BROWSER TYPE <编号> <文本>
+4. 只要正文时用 BROWSER READ，最省 token
+5. 页面长内容被 ...(truncated) 截断时，先 SCROLL 再 READ 后半部分

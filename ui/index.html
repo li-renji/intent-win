@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>奇点 Agent</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --panel:#ffffff; --line:#e5e7eb; --txt:#1f2329;
+    --sub:#6b7280; --me:#4f6ef7; --me-txt:#fff; --ai-bg:#f1f3f7; --danger:#ef4444;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",system-ui,sans-serif}
+  body{display:flex;height:100vh;background:var(--bg);color:var(--txt);overflow:hidden}
+
+  /* ---- 侧栏 ---- */
+  .side{width:240px;background:var(--panel);border-right:1px solid var(--line);
+        display:flex;flex-direction:column;padding:14px 10px 10px}
+  .logo{font-size:17px;font-weight:700;padding:2px 10px 12px}
+  .logo span{color:var(--me)}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;
+       font-size:13px;cursor:pointer;text-align:left;margin-bottom:8px;transition:.15s;width:100%}
+  .btn:hover{border-color:var(--me);color:var(--me)}
+  .btn.primary{background:var(--me);color:#fff;border-color:var(--me);text-align:center}
+  .conv-list{flex:1;overflow-y:auto;margin:4px 0}
+  .conv{display:flex;align-items:center;border-radius:9px;padding:8px 10px;font-size:13px;
+        cursor:pointer;color:var(--txt);margin-bottom:2px}
+  .conv:hover{background:var(--ai-bg)}
+  .conv.active{background:#e8ecfe;color:var(--me);font-weight:600}
+  .conv .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .conv .del{visibility:hidden;border:0;background:none;color:var(--sub);cursor:pointer;
+             font-size:14px;padding:0 2px;border-radius:5px}
+  .conv:hover .del{visibility:visible}
+  .conv .del:hover{color:var(--danger)}
+  .side-foot{border-top:1px solid var(--line);padding-top:10px}
+  .status{font-size:12px;color:var(--sub);line-height:1.9;padding:6px 10px 2px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#9ca3af;margin-right:6px}
+  .dot.on{background:#22c55e}
+
+  /* ---- 主区 ---- */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{padding:12px 24px;font-size:14px;font-weight:600;color:var(--sub);
+          border-bottom:1px solid var(--line);background:var(--panel);
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .msgs{flex:1;overflow-y:auto;padding:24px 8%}
+  .empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#c0c4cc}
+  .empty h2{font-size:22px;color:#9ca3af;margin-bottom:10px}
+  .empty p{font-size:13px}
+  .msg{display:flex;margin-bottom:18px;gap:12px}
+  .msg .avatar{width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;
+               align-items:center;justify-content:center;font-size:15px;color:#fff}
+  .msg.me{flex-direction:row-reverse}
+  .msg.me .avatar{background:var(--me)}
+  .msg.ai .avatar{background:#111827}
+  .bubble{max-width:76%;padding:11px 15px;border-radius:13px;font-size:14px;line-height:1.75;
+          white-space:pre-wrap;word-break:break-word}
+  .msg.me .bubble{background:var(--me);color:var(--me-txt);border-top-right-radius:4px}
+  .msg.ai .bubble{background:var(--ai-bg);border-top-left-radius:4px}
+  .bubble .cursor{display:inline-block;width:7px;height:15px;background:var(--me);
+                  vertical-align:-2px;animation:bk 1s infinite}
+  @keyframes bk{50%{opacity:0}}
+
+  /* ---- 工具调用卡片 ---- */
+  .tool{margin:0 0 18px 46px;max-width:76%;background:#fff;border:1px solid var(--line);
+        border-left:3px solid var(--me);border-radius:10px;padding:9px 12px;font-size:12px;
+        color:var(--sub);line-height:1.6}
+  .tool .th2{font-weight:600;color:var(--txt);font-size:12.5px;display:flex;align-items:center;gap:6px}
+  .tool .th2 .dot{background:var(--me)}
+  .tool .th2 .dot.run{background:#f59e0b;animation:bk 1s infinite}
+  .tool pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-all;
+            font-family:Consolas,monospace;font-size:11.5px;color:#4b5563;
+            background:#f7f8fa;border-radius:6px;padding:7px 9px;max-height:180px;overflow:auto}
+  .tool .err{color:var(--danger)}
+
+  /* ---- 非致命提示（降级通知等） ---- */
+  .notice{margin:0 0 14px 46px;font-size:11.5px;color:#b45309;background:#fef3c7;
+          border-radius:8px;padding:6px 11px;display:inline-block;max-width:76%;
+          line-height:1.55}
+
+  /* ---- 输入区 ---- */
+  .input-bar{padding:12px 8% 18px}
+  .input-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+             padding:12px 14px;display:flex;gap:10px;align-items:flex-end;transition:.15s}
+  .input-box:focus-within{border-color:var(--me)}
+  textarea{flex:1;border:0;outline:0;resize:none;font-size:14px;line-height:1.6;
+           max-height:140px;background:transparent}
+  .send{background:var(--me);color:#fff;border:0;border-radius:9px;padding:8px 18px;
+        font-size:13px;cursor:pointer}
+  .send:disabled{opacity:.45;cursor:default}
+  .hint{text-align:center;font-size:11px;color:#c0c4cc;margin-top:8px}
+
+  /* ---- 设置弹窗 ---- */
+  .mask{position:fixed;inset:0;background:rgba(15,23,42,.42);display:none;
+        align-items:center;justify-content:center;z-index:50}
+  .mask.show{display:flex}
+  .modal{width:520px;max-width:92vw;background:var(--panel);border-radius:16px;padding:22px 24px;
+         box-shadow:0 18px 50px rgba(0,0,0,.18)}
+  .modal h3{font-size:16px;margin-bottom:4px}
+  .modal .desc{font-size:12px;color:var(--sub);margin-bottom:14px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:5px}
+  .field input,.field select{width:100%;border:1px solid var(--line);border-radius:9px;
+       padding:9px 11px;font-size:13px;outline:0;transition:.15s;background:#fff}
+  .field input:focus,.field select:focus{border-color:var(--me)}
+  .row2{display:flex;gap:10px}
+  .row2 .field{flex:1}
+  .modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;align-items:center}
+  .m-btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 20px;
+         font-size:13px;cursor:pointer}
+  .m-btn.primary{background:var(--me);color:#fff;border-color:var(--me)}
+  .save-tip{font-size:12px;color:#22c55e;margin-right:auto;visibility:hidden}
+  .adv-toggle{font-size:12px;color:var(--me);cursor:pointer;border:0;background:none;padding:0;margin-bottom:10px}
+  #advBox{display:none}
+  #advBox.show{display:block}
+
+  /* ---- 电脑文件桥弹窗 ---- */
+  .kv{display:flex;align-items:center;gap:8px;background:#f7f8fa;border:1px solid var(--line);
+      border-radius:9px;padding:9px 11px;font-size:13px;margin-bottom:10px}
+  .kv .k{color:var(--sub);font-size:12px;flex-shrink:0;width:64px}
+  .kv .v{flex:1;font-family:Consolas,monospace;font-size:12.5px;word-break:break-all}
+  .kv .cp{border:1px solid var(--line);background:#fff;border-radius:7px;padding:4px 10px;
+          font-size:12px;cursor:pointer;flex-shrink:0}
+  .kv .cp:hover{border-color:var(--me);color:var(--me)}
+  .bridge-state{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--sub)}
+</style>
+</head>
+<body>
+  <!-- 侧栏 -->
+  <div class="side">
+    <div class="logo">奇点<span>Agent</span></div>
+    <button class="btn primary" onclick="newChat()">＋ 新建聊天</button>
+    <div class="conv-list" id="convList"></div>
+    <div class="side-foot">
+      <button class="btn" onclick="showSettings()">⚙ 设置</button>
+      <button class="btn" onclick="openBrowser()">🌐 内置浏览器</button>
+      <button class="btn" onclick="showBridge()">📱 电脑文件桥</button>
+      <div class="status" id="status">正在连接引擎…</div>
+    </div>
+  </div>
+
+  <!-- 主区 -->
+  <div class="main">
+    <div class="topbar" id="topbar">新对话</div>
+    <div class="msgs" id="msgs"></div>
+    <div class="input-bar">
+      <div class="input-box">
+        <textarea id="input" rows="1" placeholder="给奇点 Agent 发消息…（Enter 发送 / Shift+Enter 换行）"></textarea>
+        <button class="send" id="send" onclick="send()">发送</button>
+      </div>
+      <div class="hint">内容由 AI 生成，请注意甄别</div>
+    </div>
+  </div>
+
+  <!-- 电脑文件桥弹窗 -->
+  <div class="mask" id="bridgeMask">
+    <div class="modal">
+      <h3>📱 电脑文件桥</h3>
+      <div class="desc">让手机上的 qidian编辑器 在同一局域网内浏览、读取、修改本机文件（改完直接写回电脑）。关闭 Agent 窗口即停止服务。</div>
+      <div class="kv"><span class="k">状态</span><span class="v bridge-state" id="brState">查询中…</span></div>
+      <div class="kv"><span class="k">地址</span><span class="v" id="brUrls">-</span>
+        <button class="cp" onclick="cpText(document.getElementById('brUrls').textContent, this)">复制</button></div>
+      <div class="kv"><span class="k">连接码</span><span class="v" id="brToken">-</span>
+        <button class="cp" onclick="cpText(document.getElementById('brToken').textContent, this)">复制</button></div>
+      <div class="kv"><span class="k">范围</span><span class="v" id="brRoot">-</span></div>
+      <div class="desc" style="margin:4px 0 0">手机端：qidian编辑器 → 设置 → 💻 电脑连接 → 填入上面的 IP 和连接码。</div>
+      <div class="modal-foot">
+        <button class="m-btn" onclick="hideBridge()">关闭</button>
+        <button class="m-btn" id="brToggle" onclick="bridgeToggle()">启动</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置弹窗 -->
+  <div class="mask" id="mask">
+    <div class="modal">
+      <h3>⚙ 设置</h3>
+      <div class="desc">支持任意 OpenAI 兼容接口（Mimo / DeepSeek / OpenAI / llama.cpp 等），保存后立即生效，无需重启。</div>
+      <div class="field">
+        <label>接口模式</label>
+        <select id="s_mode">
+          <option value="cloud">云端 API</option>
+          <option value="local">本地模型（llama.cpp 等）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>API Key（云端模式必填）</label>
+        <input type="password" id="s_key" placeholder="sk-...">
+      </div>
+      <div class="field">
+        <label>接口地址 Base URL</label>
+        <input type="text" id="s_base" placeholder="https://api.example.com/v1">
+      </div>
+      <div class="field">
+        <label>模型名称</label>
+        <input type="text" id="s_model" placeholder="model-name">
+      </div>
+      <button class="adv-toggle" onclick="document.getElementById('advBox').classList.toggle('show')">▸ 本地模型高级设置</button>
+      <div id="advBox">
+        <div class="row2">
+          <div class="field">
+            <label>本地端点</label>
+            <input type="text" id="s_lbase" placeholder="http://127.0.0.1:8080/v1">
+          </div>
+          <div class="field">
+            <label>本地模型名</label>
+            <input type="text" id="s_lmodel" placeholder="minicpm-2b">
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span class="save-tip" id="saveTip">✓ 已保存并生效</span>
+        <button class="m-btn" onclick="hideSettings()">关闭</button>
+        <button class="m-btn primary" onclick="saveSettings()">保存</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const msgs = document.getElementById('msgs');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('send');
+let busy = false, curId = null, curTitle = '新对话';
+
+const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+const scrollEnd = () => { msgs.scrollTop = msgs.scrollHeight; };
+
+/* ---------- 消息渲染 ---------- */
+function emptyHTML(){
+  return '<div class="empty" id="emptyHint"><h2>奇点 Agent</h2>' +
+         '<p>与奇点OS对齐 · 6800/6801/6802 引擎运行中</p>' +
+         '<p>开始输入，或在左下角「设置」配置你的模型接口</p></div>';
+}
+function addMsg(role, text, animate){
+  const eh = document.getElementById('emptyHint'); if(eh) eh.remove();
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'me' ? 'me' : 'ai');
+  div.innerHTML = '<div class="avatar">' + (role === 'me' ? '我' : '奇') + '</div>' +
+                  '<div class="bubble">' + esc(text) + (animate ? '<span class="cursor"></span>' : '') + '</div>';
+  msgs.appendChild(div); scrollEnd();
+  return div.querySelector('.bubble');
+}
+function renderHistory(list){
+  (list || []).forEach(m => addMsg(m.role === 'user' ? 'me' : 'ai', m.content, false));
+  if(!(list || []).length) msgs.innerHTML = emptyHTML();
+}
+function renderStatus(s){
+  document.getElementById('status').innerHTML =
+    '<span class="dot ' + (s.llm ? 'on' : '') + '"></span>引擎：' + s.engine + (s.llm ? '（已配置）' : '（未配置）') + '<br>' +
+    '<span class="dot ' + (s.browser ? 'on' : '') + '"></span>浏览器：' + s.browser_text + '<br>' +
+    '<span class="dot on"></span>工具：' + s.tools;
+  document.getElementById('topbar').textContent = curTitle || '新对话';
+}
+
+/* ---------- 会话 ---------- */
+async function refreshList(){
+  const list = await pywebview.api.list_conversations();
+  const box = document.getElementById('convList');
+  box.innerHTML = '';
+  list.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'conv' + (c.id === curId ? ' active' : '');
+    div.innerHTML = '<div class="t">' + esc(c.title) + '</div><button class="del" title="删除">✕</button>';
+    div.onclick = () => openConv(c.id);
+    div.querySelector('.del').onclick = e => { e.stopPropagation(); delConv(c.id); };
+    box.appendChild(div);
+  });
+}
+async function openConv(id){
+  if(busy) return;
+  const r = await pywebview.api.open_conversation(id);
+  if(!r.ok) return;
+  curId = r.id; curTitle = r.title;
+  document.getElementById('topbar').textContent = curTitle;
+  msgs.innerHTML = ''; renderHistory(r.messages);
+  refreshList();
+}
+async function newChat(){
+  if(busy) return;
+  const r = await pywebview.api.new_conversation();
+  curId = r.id; curTitle = r.title;
+  document.getElementById('topbar').textContent = curTitle;
+  msgs.innerHTML = emptyHTML();
+  refreshList(); input.focus();
+}
+async function delConv(id){
+  if(busy) return;
+  await pywebview.api.delete_conversation(id);
+  if(curId === id){ curId = null; curTitle = '新对话'; msgs.innerHTML = emptyHTML();
+                    document.getElementById('topbar').textContent = curTitle; }
+  refreshList();
+}
+
+/* ---------- 流式回调（Python → JS） ---------- */
+window.__onToken = chunk => {
+  if(!window._curBubble) return;
+  window._full = (window._full || '') + chunk;
+  window._curBubble.innerHTML = esc(window._full) + '<span class="cursor"></span>';
+  scrollEnd();
+};
+window.__onDone = title => {
+  if(window._curBubble) window._curBubble.innerHTML = esc(window._full || '');
+  window._curBubble = null; window._full = '';
+  window.__toolQueue = [];
+  busy = false; sendBtn.disabled = false; input.focus();
+  if(title){ curTitle = title; document.getElementById('topbar').textContent = title; refreshList(); }
+};
+window.__onError = err => {
+  if(window._curBubble) window._curBubble.textContent = '⚠ ' + err;
+  window._curBubble = null; window._full = '';
+  window.__toolQueue = [];
+  busy = false; sendBtn.disabled = false;
+};
+window.__onNewConv = c => { curId = c.id; curTitle = c.title; refreshList(); };
+window.__onTextReset = t => {
+  if(window._curBubble) window._curBubble.innerHTML = esc(t || '') + '<span class="cursor"></span>';
+  window._full = t || '';
+};
+window.__onNotice = msg => {
+  // 非致命提示：插入一条灰色小字，不影响正在输出的气泡
+  const eh = document.getElementById('emptyHint'); if(eh) eh.remove();
+  const div = document.createElement('div');
+  div.className = 'notice';
+  div.innerHTML = esc(msg || '');
+  const bubble = window._curBubble;
+  if(bubble && bubble.parentNode) bubble.parentNode.insertBefore(div, bubble);
+  else msgs.appendChild(div);
+  scrollEnd();
+};
+
+/* ---------- 工具调用过程 ---------- */
+const TOOL_CN = {fs:'文件读取', code:'代码执行', screen:'屏幕操控', browser:'内置浏览器',
+                 memo:'本地记忆', skills:'技能列表', phone:'手机执行'};
+const TOOL_OP_CN = {list:'列目录', read:'读文件', search:'按名查找', grep:'按内容查找',
+                    info:'文件属性', shot:'截图', key:'按键', type:'输入文本',
+                    click:'点击', move:'移动鼠标', write:'写记忆', python:'Python', shell:'命令'};
+function toolLabel(name, args){
+  const cn = TOOL_CN[name] || name;
+  if(!args) return cn;
+  const key = (name === 'fs' || name === 'screen' || name === 'memo') ? args.op
+            : (name === 'code') ? args.lang : null;
+  return key ? cn + ' · ' + (TOOL_OP_CN[key] || key) : cn;
+}
+window.__toolQueue = [];
+window.__onToolStart = p => {
+  const eh = document.getElementById('emptyHint'); if(eh) eh.remove();
+  const div = document.createElement('div');
+  div.className = 'tool';
+  let argsLine = '（无参数）';
+  if(p.args && Object.keys(p.args).length){
+    const a = Object.assign({}, p.args);
+    if(typeof a.code === 'string' && a.code.length > 400)
+      a.code = a.code.slice(0, 400) + '\n…（共 ' + a.code.length + ' 字符）';
+    if(typeof a.text === 'string' && a.text.length > 200)
+      a.text = a.text.slice(0, 200) + '…';
+    argsLine = JSON.stringify(a, null, 1);
+  }
+  div.innerHTML = '<div class="th2"><span class="dot run"></span>调用工具 · ' + esc(toolLabel(p.name, p.args)) +
+                  '<span style="margin-left:auto;color:#9ca3af">第 ' + esc(p.round) + ' 轮</span></div>' +
+                  '<pre>' + esc(argsLine) + '</pre>';
+  // 插到当前 AI 气泡之前（工具先发生，答复在后）
+  const bubble = window._curBubble;
+  if(bubble && bubble.parentNode) bubble.parentNode.insertBefore(div, bubble);
+  else msgs.appendChild(div);
+  window.__toolQueue.push(div);
+  scrollEnd();
+};
+window.__onToolEnd = p => {
+  const div = window.__toolQueue.shift();
+  if(!div) return;
+  const head = div.querySelector('.th2');
+  if(head){
+    head.innerHTML = '<span class="dot' + (p.ok ? ' on' : '') + '"></span>' +
+      (p.ok ? '工具完成 · ' : '工具失败 · ') + esc(toolLabel(p.name, p.args)) +
+      '<span style="margin-left:auto;color:#9ca3af">第 ' + esc(p.round) + ' 轮</span>';
+  }
+  const pre = document.createElement('pre');
+  let res = p.result || '';
+  if(res.length > 1200) res = res.slice(0, 1200) + '\n…（结果过长，已截断）';
+  pre.textContent = res;
+  if(!p.ok) pre.className = 'err';
+  div.appendChild(pre);
+  scrollEnd();
+};
+
+/* ---------- 发送 ---------- */
+async function send(){
+  const text = input.value.trim();
+  if(!text || busy) return;
+  busy = true; sendBtn.disabled = true;
+  input.value = ''; input.style.height = 'auto';
+  addMsg('me', text);
+  window._curBubble = addMsg('ai', '', true);
+  window._full = '';
+  try { await pywebview.api.send_message(text); }
+  catch(e){ window.__onError(String(e)); }
+}
+
+/* ---------- 电脑文件桥 ---------- */
+async function showBridge(){
+  document.getElementById('bridgeMask').classList.add('show');
+  await refreshBridge();
+}
+function hideBridge(){ document.getElementById('bridgeMask').classList.remove('show'); }
+async function refreshBridge(){
+  let s;
+  try { s = await pywebview.api.bridge_status(); }
+  catch(e){ document.getElementById('brState').textContent = '引擎未连接'; return; }
+  document.getElementById('brState').innerHTML =
+    '<span class="dot ' + (s.running ? 'on' : '') + '"></span>' +
+    (s.running ? '运行中 · 端口 ' + s.port : '未启动');
+  document.getElementById('brUrls').textContent = (s.urls || []).join('  ,  ') || '-';
+  document.getElementById('brToken').textContent = s.token || '-';
+  document.getElementById('brRoot').textContent = s.root || '-';
+  document.getElementById('brToggle').textContent = s.running ? '停止' : '启动';
+}
+async function bridgeToggle(){
+  const btn = document.getElementById('brToggle');
+  btn.disabled = true;
+  try {
+    const s = await pywebview.api.bridge_status();
+    const r = s.running ? await pywebview.api.bridge_stop() : await pywebview.api.bridge_start();
+    if(!r.ok){ alert(r.error || '操作失败'); }
+  } catch(e){ alert(String(e)); }
+  btn.disabled = false;
+  await refreshBridge();
+}
+function cpText(t, btn){
+  navigator.clipboard.writeText(t || '').then(() => {
+    const old = btn.textContent; btn.textContent = '✓ 已复制';
+    setTimeout(() => btn.textContent = old, 1200);
+  });
+}
+
+/* ---------- 设置 ---------- */
+async function showSettings(){
+  const s = await pywebview.api.get_settings();
+  document.getElementById('s_mode').value = s.llm_mode;
+  document.getElementById('s_key').value = s.api_key.startsWith('<') ? '' : s.api_key;
+  document.getElementById('s_base').value = s.base_url;
+  document.getElementById('s_model').value = s.model;
+  document.getElementById('s_lbase').value = s.llm_base_url;
+  document.getElementById('s_lmodel').value = s.llm_model;
+  document.getElementById('saveTip').style.visibility = 'hidden';
+  document.getElementById('mask').classList.add('show');
+}
+function hideSettings(){ document.getElementById('mask').classList.remove('show'); }
+async function saveSettings(){
+  const r = await pywebview.api.save_settings({
+    llm_mode: document.getElementById('s_mode').value,
+    api_key: document.getElementById('s_key').value.trim(),
+    base_url: document.getElementById('s_base').value.trim(),
+    model: document.getElementById('s_model').value.trim(),
+    llm_base_url: document.getElementById('s_lbase').value.trim(),
+    llm_model: document.getElementById('s_lmodel').value.trim(),
+  });
+  const tip = document.getElementById('saveTip');
+  tip.textContent = r.configured ? '✓ 已保存并生效' : '已保存，但 Key/地址还不完整';
+  tip.style.visibility = 'visible';
+  renderStatus(await pywebview.api.get_status());
+}
+
+/* ---------- 浏览器 ---------- */
+async function openBrowser(){
+  const r = await pywebview.api.open_browser();
+  if(!r.ok) alert(r.msg);
+  renderStatus(await pywebview.api.get_status());
+}
+
+/* ---------- 输入框 ---------- */
+input.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }
+});
+input.addEventListener('input', () => {
+  input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+});
+document.getElementById('mask').addEventListener('click', e => {
+  if(e.target === e.currentTarget) hideSettings();
+});
+document.getElementById('bridgeMask').addEventListener('click', e => {
+  if(e.target === e.currentTarget) hideBridge();
+});
+
+/* ---------- 启动 ---------- */
+window.addEventListener('DOMContentLoaded', () => {
+  const t = setInterval(async () => {
+    if(!window.pywebview) return;
+    clearInterval(t);
+    renderStatus(await pywebview.api.get_status());
+    const list = await pywebview.api.list_conversations();
+    if(list.length){ await openConv(list[0].id); }
+    else { await newChat(); }
+    // 未配置 API → 首次自动弹设置引导
+    const s = await pywebview.api.get_settings();
+    if(!s.configured) showSettings();
+  }, 200);
+});
+</script>
+</body>
+</html>
