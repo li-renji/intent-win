@@ -6,11 +6,13 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 import urllib.request
 import urllib.error
 
 MIRROR_PORT = 19981
-WORK = r"C:/Users/renji/AppData/Local/Temp/prov_test"
+# 用系统临时目录，不硬编码任何用户的家目录路径
+WORK = os.path.join(tempfile.gettempdir(), "prov_test")
 
 
 def sha256(path):
@@ -111,7 +113,8 @@ def main():
     os.makedirs(WORK)
 
     # 用例直接使用 mock 镜像实际提供的文件（否则 sha256 必然对不上）
-    src = os.environ.get("MIRROR_SRC", r"C:/Users/renji/AppData/Local/Temp/mirror_src")
+    src = os.environ.get("MIRROR_SRC",
+                         os.path.join(tempfile.gettempdir(), "mirror_src"))
     if not os.path.isdir(src):
         print("!! 找不到镜像源目录:", src)
         return False
