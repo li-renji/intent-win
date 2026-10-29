@@ -23,7 +23,13 @@ def load_config(path=None):
     def intv(name, default):
         try:
             return int(cfg.get(name, default))
-        except ValueError:
+        except (TypeError, ValueError):
+            return default
+
+    def _floatv(name, default):
+        try:
+            return float(cfg.get(name, default))
+        except (TypeError, ValueError):
             return default
 
     return {
@@ -32,8 +38,14 @@ def load_config(path=None):
         "base_url": cfg.get("base_url", ""),
         "api_key": cfg.get("api_key", ""),
         "model": cfg.get("model", ""),
-        "llm_base_url": cfg.get("llm_base_url", "http://127.0.0.1:8080/v1"),
+        "llm_base_url": cfg.get("llm_base_url", ""),
         "llm_model": cfg.get("llm_model", "local-model"),
+        # 模型库档案（JSON 字符串，save_settings 写入；_load_profiles 解析）
+        "profiles": cfg.get("profiles", ""),
+        # 界面外观主题（dark / light），UI 个性化面板写入
+        "theme": cfg.get("theme", "dark"),
+        # 上下文容量（tok）显示/自救用：0=自动按型号查表，>0=手动指定
+        "llm_ctx": intv("llm_ctx", 0),
         # 端口
         "host": cfg.get("host", "127.0.0.1"),
         "port_6800": intv("port_6800", 6800),
@@ -58,6 +70,11 @@ def load_config(path=None):
         "agent_confirm_tools": cfg.get("agent_confirm_tools", ""),
         "agent_tool_mode": cfg.get("agent_tool_mode", "auto"),
         "agent_req_timeout": intv("agent_req_timeout", 90),
+        # 上下文经济性（对齐 pi）：占总容量比例超过该值就主动压缩历史，
+        # 而不是等上游报「上下文超限」才救（0=关闭主动压缩）
+        "agent_compact_ratio": _floatv(cfg.get("agent_compact_ratio", "0.8"), 0.8),
+        # 主动压缩时保留最近对话的 token 预算
+        "agent_keep_tokens": intv("agent_keep_tokens", 8000),
         # 电脑文件桥（手机 qidian编辑器 无线访问/写入本机文件，默认关，UI 可一键启动）
         "pc_bridge_enabled": flag("pc_bridge_enabled", False),
         "pc_bridge_port": intv("pc_bridge_port", 8899),
@@ -82,8 +99,61 @@ def load_config(path=None):
         "browser_width": intv("browser_width", 1280),
         "browser_height": intv("browser_height", 860),
         "snapshot_max_chars": intv("snapshot_max_chars", 3500),
+        # 工作台入口：侧栏「工作台」按钮是否显示（0/False=剥离工作台，仅用聊天 Agent）
+        "workbench_enabled": flag("workbench_enabled", True),
+        # 玻璃材质：glass=整体玻璃效果开关，refract=折射层开关（折射较吃性能）
+        "glass_enabled": flag("glass_enabled", True),
+        "glass_refract": flag("glass_refract", True),
+        # 背景可见度（0~1，越大图片越清晰）与玻璃磨砂度（px，越大越磨砂）
+        "bg_visibility": _floatv("bg_visibility", 0.7),
+        "glass_blur": _floatv("glass_blur", 12.0),
+        # 背景画面焦点（0~100 百分比）：长图时可上移焦点，只展示图片上半部分
+        "bg_pos_x": _floatv("bg_pos_x", 50.0),
+        "bg_pos_y": _floatv("bg_pos_y", 50.0),
+        # ===== 区域独立控制：任务栏 / 聊天区 各管各的 =====
+        # 之前两者共用同一套玻璃参数，导致「调玻璃效果时任务栏跟着一起变通透」，
+        # 且浅色主题下侧栏被硬编码成不透明、根本不变 —— 现在彻底拆开。
+        # glass：该区域是否磨砂模糊；opacity：该区域底色浓度（0=全透，1=全不透明）
+        # opacity 存 -1 表示「跟随主题默认」，用户手动拖过滑块才写入具体值。
+        "side_glass": flag("side_glass", True),
+        "side_opacity": _floatv("side_opacity", -1.0),
+        "main_glass": flag("main_glass", True),
+        "main_opacity": _floatv("main_opacity", -1.0),
         "project_root": os.path.dirname(path),
     }
+
+
+# 已知模型的上下文容量（tok）。云端/网关模型没有 GGUF 可读，按型号查表；
+# 查不到的型号可在 配置.qdai 用 llm_ctx 手动指定（0=自动）。
+MODEL_CTX_LIMITS = {
+    # 小米 MiMo（OpenAI 兼容，1M 上下文）
+    "mimo-v2.6-pro": 1048576,
+    "mimo-v2.6-flash": 1048576,
+    "mimo-v2.6-pro-ultraspeed": 1048576,
+    "mimo-v2-pro": 1048576,
+    "mimo-v2-flash": 1048576,
+    # 手机端本地 MNN 小模型（网关会裁剪 prompt，保守估计）
+    "qwen2.5-1.5b-mnn": 4096,
+    "minicpm-2b": 4096,
+}
+DEFAULT_CTX = 40960
+
+
+def model_ctx_limit(cfg):
+    """当前模型的上下文容量（tok）：llm_ctx 覆盖 > 型号查表 > 本地引擎配置 > 默认。"""
+    try:
+        n = int(cfg.get("llm_ctx", 0) or 0)
+    except (TypeError, ValueError):
+        n = 0
+    if n > 0:
+        return n
+    if str(cfg.get("llm_mode", "cloud")).lower() == "local":
+        m = cfg.get("llm_model") or ""
+        if m in MODEL_CTX_LIMITS:
+            return MODEL_CTX_LIMITS[m]
+        n = int(cfg.get("local_engine_ctx", 0) or 0)
+        return n if n > 0 else DEFAULT_CTX
+    return MODEL_CTX_LIMITS.get(cfg.get("model") or "", DEFAULT_CTX)
 
 
 def active_llm(cfg):
@@ -95,7 +165,10 @@ def active_llm(cfg):
 
 # 设置页允许改写的键（白名单，其余配置不暴露）
 EDITABLE_KEYS = ("llm_mode", "base_url", "api_key", "model",
-                 "llm_base_url", "llm_model")
+                 "llm_base_url", "llm_model", "profiles", "theme",
+                 "workbench_enabled", "glass_enabled", "glass_refract",
+                 "bg_visibility", "glass_blur", "bg_pos_x", "bg_pos_y",
+                 "side_glass", "side_opacity", "main_glass", "main_opacity")
 
 
 def save_settings(cfg, updates):

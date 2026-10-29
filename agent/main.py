@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""qd-agent-win 入口：装配 配置.qdai → ToolBus → 浏览器 → 三端口。
+"""intent 入口：装配 配置.qdai → ToolBus → 浏览器 → 三端口。
 
 用法：
   python -m agent.main            # 三端口 + 浏览器窗口
@@ -40,7 +40,7 @@ async def main():
     if s6802:
         servers.append(s6802)
 
-    print("奇点 Windows Agent 就绪。工具清单: %s" % (", ".join(bus.enabled()) or "无"))
+    print("intent（Windows Agent）就绪。工具清单: %s" % (", ".join(bus.enabled()) or "无"))
     try:
         await asyncio.Event().wait()  # 常驻
     finally:

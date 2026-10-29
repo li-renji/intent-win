@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设备统一管理工作台</title>
+<style>
+  :root {
+    --bg-app:#0a0c10; --bg-panel:#12161f; --bg-elev:#1a2030; --bg-input:#0b0e14;
+    --border:rgba(255,255,255,.07); --border-strong:rgba(255,255,255,.13);
+    --text:#e7e9ee; --muted:#93a0b4; --ter:#5f6c80;
+    --accent:#7c83ff; --accent2:#36c6e0;
+    --me-grad:linear-gradient(135deg,#7c83ff 0%,#36c6e0 100%);
+    --ok:#34d399; --bad:#f87171; --warn:#fbbf24;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.5);
+    --shadow-md:0 10px 30px rgba(0,0,0,.45);
+    --shadow-lg:0 30px 70px rgba(0,0,0,.6);
+    --r-sm:9px; --r-md:13px; --r-lg:18px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1100px 600px at 88% -10%, rgba(124,131,255,.12), transparent 60%),
+      radial-gradient(900px 520px at -8% 108%, rgba(54,198,224,.09), transparent 55%),
+      var(--bg-app);
+    color: var(--text);
+    font-family: "Inter","PingFang SC","HarmonyOS Sans SC","Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    padding: 28px;
+    -webkit-font-smoothing: antialiased;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 16px; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: .4px; display: flex; align-items: center; gap: 12px; }
+  h1::before { content: ""; width: 10px; height: 22px; border-radius: 4px; background: var(--me-grad); box-shadow: 0 0 12px rgba(124,131,255,.55); }
+  header small { color: var(--muted); font-size: 12.5px; }
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stat { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--r-md);
+    padding: 10px 18px; font-size: 12.5px; color: var(--muted); box-shadow: var(--shadow-sm); min-width: 92px; }
+  .stat b { display: block; font-size: 20px; color: var(--text); font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  .card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--r-md);
+    padding: 18px; box-shadow: var(--shadow-sm); transition: .2s; }
+  .card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .card h2 { font-size: 15px; margin-bottom: 5px; display: flex; align-items: center; gap: 9px; font-weight: 600; }
+  .card .note { color: var(--muted); font-size: 12px; margin-bottom: 12px; line-height: 1.5; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+  .dot.online { background: var(--ok); box-shadow: 0 0 8px rgba(52,211,153,.7); }
+  .dot.offline { background: var(--bad); box-shadow: 0 0 8px rgba(248,113,113,.6); }
+  .dot.undeployed { background: var(--ter); }
+  .port { display: flex; justify-content: space-between; align-items: center; padding: 7px 11px; border-radius: 8px;
+    font-size: 12.5px; margin-top: 5px; background: rgba(255,255,255,.03); border: 1px solid var(--border); }
+  .port .ok { color: var(--ok); font-weight: 500; }
+  .port .bad { color: var(--bad); font-weight: 500; }
+  .port .gray { color: var(--ter); }
+  .proxy { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  button { background: var(--me-grad); color: #0a0c10; border: 0; border-radius: 10px; padding: 8px 15px;
+    font-weight: 600; cursor: pointer; font-size: 13px; transition: .18s; box-shadow: 0 6px 16px rgba(124,131,255,.32); }
+  button:hover { filter: brightness(1.07); }
+  button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+  button.ghost { background: rgba(255,255,255,.03); color: var(--muted); border: 1px solid var(--border); font-weight: 500; box-shadow: none; }
+  button.ghost:hover { color: var(--text); border-color: var(--border-strong); }
+  button.danger { background: transparent; color: var(--bad); border: 1px solid rgba(248,113,113,.35); font-weight: 500; box-shadow: none; }
+  button.danger:hover { background: rgba(248,113,113,.12); }
+  pre { background: var(--bg-input); border: 1px solid var(--border); border-radius: 9px; padding: 11px; font-size: 12px;
+    overflow: auto; margin-top: 10px; max-height: 220px; white-space: pre-wrap; word-break: break-all;
+    font-family: "JetBrains Mono", Consolas, monospace; color: #aeb8c8; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .card-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .card-actions button { padding: 6px 13px; font-size: 12.5px; }
+  .badge { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 2px 10px; }
+  /* 弹窗 */
+  .overlay { position: fixed; inset: 0; background: rgba(6,8,12,.62); backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center; z-index: 50; }
+  .overlay.show { display: flex; animation: fade .2s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: rgba(20,24,33,.92); border: 1px solid var(--border-strong); border-radius: var(--r-lg);
+    padding: 24px 26px; width: 440px; max-width: 92vw; box-shadow: var(--shadow-lg); backdrop-filter: blur(20px);
+    animation: pop .22s cubic-bezier(.2,.8,.2,1); }
+  @keyframes pop { from { transform: translateY(10px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+  .modal h3 { font-size: 17px; margin-bottom: 16px; font-weight: 700; }
+  .modal label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 6px; font-weight: 500; }
+  .modal input[type=text] { width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 9px 12px; font-size: 13px; font-family: inherit; outline: 0; transition: .18s; }
+  .modal input[type=text]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,131,255,.15); }
+  .modal .row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: var(--text); }
+  .modal .row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+  .modal .hint { color: var(--muted); font-size: 11px; margin-top: 5px; line-height: 1.6; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .err { color: var(--bad); font-size: 12px; margin-top: 10px; min-height: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>设备统一管理工作台</h1>
+    <small id="updated">加载中...</small>
+  </div>
+  <div class="stats">
+    <div class="stat">在线设备 <b id="st-online">-</b></div>
+    <div class="stat">总设备 <b id="st-total">-</b></div>
+    <div class="stat">未部署 <b id="st-undeployed">-</b></div>
+    <div class="stat">API代理 <b id="st-proxy">-</b></div>
+  </div>
+</header>
+<div class="toolbar">
+  <button onclick="loadDevices()">刷新状态</button>
+  <button onclick="refreshProxy()">刷新代理</button>
+  <button onclick="genKey()" id="btn-key">生成API令牌</button>
+  <button onclick="openAdd()">+ 添加设备</button>
+</div>
+<div class="grid" id="devices"></div>
+
+<h2 style="margin: 24px 0 12px; font-size: 15px; font-weight: 600;">API 中转 (LiteLLM)</h2>
+<div class="card">
+  <div class="proxy">
+    <div>
+      <b id="proxy-url">-</b>
+      <div class="muted" id="proxy-status">未检测</div>
+    </div>
+    <span class="dot" id="proxy-dot"></span>
+  </div>
+  <pre id="proxy-key-result" style="display:none;"></pre>
+</div>
+
+<!-- 添加 / 编辑设备 -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modal-title">添加设备</h3>
+    <label>设备名称 *</label>
+    <input type="text" id="f-name" placeholder="例如 客厅台式机 / 我的手机">
+    <label>设备地址 *</label>
+    <input type="text" id="f-host" placeholder="局域网 IP 或主机名，例如 192.168.3.20">
+    <div class="hint">本机填 127.0.0.1；局域网设备填它的局域网 IP。</div>
+    <label>探活端口</label>
+    <input type="text" id="f-ports" placeholder="6800:对话, 6802:对外API">
+    <div class="hint">多个端口用逗号分隔；可用「端口:用途标签」。留空表示只登记、不探活。</div>
+    <label>备注</label>
+    <input type="text" id="f-note" placeholder="例如 奇点 Windows Agent">
+    <div class="row">
+      <input type="checkbox" id="f-deployed" checked>
+      <label style="margin:0;color:var(--text);font-size:13px;" for="f-deployed">已部署（勾选后参与探活；取消勾选仅作占位登记）</label>
+    </div>
+    <div class="err" id="f-err"></div>
+    <div class="modal-actions">
+      <button class="ghost" onclick="closeModal()">取消</button>
+      <button onclick="submitForm()" id="btn-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let devicesData = [];
+let editingId = null;
+
+async function loadDevices() {
+  const res = await fetch('/api/devices');
+  const data = await res.json();
+  devicesData = data.devices || [];
+  renderDevices();
+}
+
+function statusOf(d) {
+  if (!d.deployed) return 'undeployed';
+  return d.online ? 'online' : 'offline';
+}
+
+function renderDevices() {
+  const box = document.getElementById('devices');
+  box.innerHTML = '';
+  let onlineCount = 0, undeployed = 0;
+  devicesData.forEach(d => {
+    const st = statusOf(d);
+    if (st === 'online') onlineCount++;
+    if (st === 'undeployed') undeployed++;
+    const card = document.createElement('div');
+    card.className = 'card';
+    const ports = (d.ports || []).length
+      ? d.ports.map(p => {
+          const cls = !d.deployed ? 'gray' : (p.ok ? 'ok' : 'bad');
+          const txt = !d.deployed ? '未部署' : (p.ok ? '在线' : '离线');
+          return `<div class="port"><span>${p.label || '端口'} : ${p.port}</span><span class="${cls}">${txt}</span></div>`;
+        }).join('')
+      : '<div class="muted" style="margin-top:8px;">未配置探活端口</div>';
+    const badge = st === 'undeployed'
+      ? '<span class="badge">未部署</span>'
+      : (st === 'online' ? '<span class="badge">在线</span>' : '<span class="badge">离线</span>');
+    card.innerHTML = `
+      <h2><span class="dot ${st}"></span> ${d.name} ${badge}</h2>
+      <div class="note">${d.host} — ${d.note || ''}</div>
+      ${ports}
+      <div class="card-actions">
+        <button class="ghost" onclick="openEdit('${d.id}')">编辑</button>
+        <button class="ghost" onclick="toggleDevice('${d.id}')">${d.deployed ? '标为未部署' : '标为已部署'}</button>
+        <button class="danger" onclick="delDevice('${d.id}')">删除</button>
+      </div>
+    `;
+    box.appendChild(card);
+  });
+  document.getElementById('st-online').textContent = onlineCount;
+  document.getElementById('st-total').textContent = devicesData.length;
+  document.getElementById('st-undeployed').textContent = undeployed;
+  document.getElementById('updated').textContent = '更新于 ' + new Date().toLocaleTimeString();
+}
+
+function openAdd() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = '添加设备';
+  ['f-name','f-host','f-ports','f-note'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-deployed').checked = true;
+  document.getElementById('f-err').textContent = '';
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('f-name').focus();
+}
+
+function openEdit(id) {
+  const d = devicesData.find(x => x.id === id);
+  if (!d) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = '编辑设备：' + d.name;
+  document.getElementById('f-name').value = d.name;
+  document.getElementById('f-host').value = d.host;
+  document.getElementById('f-ports').value = (d.ports || []).map(p => `${p.port}:${p.label}`).join(', ');
+  document.getElementById('f-note').value = d.note || '';
+  document.getElementById('f-deployed').checked = !!d.deployed;
+  document.getElementById('f-err').textContent = '';
+  document.getElementById('overlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('show');
+}
+
+async function submitForm() {
+  const btn = document.getElementById('btn-save');
+  const err = document.getElementById('f-err');
+  const payload = {
+    name: document.getElementById('f-name').value.trim(),
+    host: document.getElementById('f-host').value.trim(),
+    ports: document.getElementById('f-ports').value.trim(),
+    note: document.getElementById('f-note').value.trim(),
+    deployed: document.getElementById('f-deployed').checked,
+  };
+  err.textContent = '';
+  if (!payload.name || !payload.host) { err.textContent = '名称和地址为必填项'; return; }
+  btn.disabled = true;
+  try {
+    const url = editingId ? `/api/devices/${encodeURIComponent(editingId)}` : '/api/devices';
+    const res = await fetch(url, {
+      method: editingId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.detail || ('保存失败 HTTP ' + res.status); btn.disabled = false; return; }
+    closeModal();
+    await loadDevices();
+  } catch (e) {
+    err.textContent = '请求异常: ' + e;
+  }
+  btn.disabled = false;
+}
+
+async function delDevice(id) {
+  const d = devicesData.find(x => x.id === id);
+  if (!confirm(`确定删除设备「${d ? d.name : id}」？该操作会写入 devices.yaml 配置文件。`)) return;
+  const res = await fetch(`/api/devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) { const t = await res.json().catch(()=>({})); alert(t.detail || '删除失败'); return; }
+  await loadDevices();
+}
+
+async function toggleDevice(id) {
+  const res = await fetch(`/api/devices/${encodeURIComponent(id)}/toggle`, { method: 'POST' });
+  if (!res.ok) { const t = await res.json().catch(()=>({})); alert(t.detail || '操作失败'); return; }
+  await loadDevices();
+}
+
+async function refreshProxy() {
+  const res = await fetch('/api/proxy');
+  const p = await res.json();
+  document.getElementById('proxy-url').textContent = p.base_url;
+  const dot = document.getElementById('proxy-dot');
+  const st = document.getElementById('proxy-status');
+  dot.className = 'dot ' + (p.reachable ? 'online' : 'offline');
+  st.textContent = p.reachable
+    ? `可达 (HTTP ${p.status})${p.admin_configured ? ' · 已配置管理密钥' : ' · 未配置管理密钥'}`
+    : '不可达' + (p.detail ? ` (${p.detail})` : '');
+  document.getElementById('st-proxy').textContent = p.reachable ? '在线' : '离线';
+  return p;
+}
+
+async function genKey() {
+  const btn = document.getElementById('btn-key');
+  const pre = document.getElementById('proxy-key-result');
+  btn.disabled = true;
+  pre.style.display = 'block';
+  pre.textContent = '请求中...';
+  const res = await fetch('/api/proxy/key', { method: 'POST' });
+  const data = await res.json();
+  pre.textContent = JSON.stringify(data, null, 2);
+  btn.disabled = false;
+}
+
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target.id === 'overlay') closeModal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+loadDevices();
+refreshProxy();
+</script>
+</body>
+</html>

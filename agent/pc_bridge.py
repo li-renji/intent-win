@@ -171,6 +171,25 @@ class _BridgeHandler(BaseHTTPRequestHandler):
                 return self._read(qs)
             if u.path == "/api/download":
                 return self._download(qs)
+            if u.path == "/kb/stats":
+                if self.server.bridge.kb is None:
+                    return self._json(200, {"ok": True, "indexed": False,
+                                            "count": 0, "hint": "本机未建立知识库"})
+                return self._json(200, {"ok": True,
+                                        **{k: v for k, v in
+                                           self.server.bridge.kb.stats().items()
+                                           if k != "progress"}})
+            if u.path == "/kb/search":
+                if self.server.bridge.kb is None:
+                    return self._json(200, {"ok": True, "hits": [],
+                                            "hint": "本机未建立知识库"})
+                kw = (qs.get("kw") or [""])[0]
+                if not kw:
+                    return self._json(400, {"ok": False, "error": "缺少 kw"})
+                limit = int((qs.get("limit") or ["15"])[0] or 15)
+                hits = self.server.bridge.kb.search(kw, limit=limit)
+                self.log_message("KB-SEARCH %s (%d 命中)", kw, len(hits))
+                return self._json(200, {"ok": True, "kw": kw, "hits": hits})
             return self._json(404, {"ok": False, "error": "未知接口: " + u.path})
         except Exception as e:
             return self._json(500, {"ok": False, "error": str(e)})
@@ -325,10 +344,11 @@ class _BridgeServer(ThreadingHTTPServer):
 class PCBridge:
     """文件桥运行时：token 管理 + 后台线程服务 + 状态查询。"""
 
-    def __init__(self, port=8899, root=None, token_file=None):
+    def __init__(self, port=8899, root=None, token_file=None, kb=None):
         self.port = int(port)
         self.root = os.path.abspath(root) if root else None
         self.token_file = token_file
+        self.kb = kb          # 知识库（可选）：/kb/search 让手机端共用同一份索引
         self.token = self._load_or_create_token()
         self._server = None
         self._thread = None
@@ -387,7 +407,7 @@ class PCBridge:
         s = self.status()
         lines = [
             "==============================================",
-            "  qidian编辑器 · 电脑文件桥 已启动（qd-agent-win 内置）",
+            "  qidian编辑器 · 电脑文件桥 已启动（intent 内置）",
             "==============================================",
             "  端口      : %d" % s["port"],
             "  本机 IP   : %s" % (", ".join(s["urls"]) or "-"),

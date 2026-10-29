@@ -48,11 +48,53 @@ def _build_payload(model, messages, stream, tools=None):
     if tools:
         payload["tools"] = tools
         payload["tool_choice"] = "auto"
+    if stream:
+        # 让上游在最后一帧带上 usage（prompt/completion token），用于上下文用量显示
+        payload["stream_options"] = {"include_usage": True}
     return payload
 
 
 def _endpoint_url(endpoint):
     return endpoint.rstrip("/") + "/chat/completions"
+
+
+def _explain_http_error(code, detail):
+    """把上游 HTTP 错误翻译成用户能行动的中文提示（保留原始详情便于排查）。"""
+    d = (detail or "").strip()[:300]
+    low = d.lower()
+    tail = ("；上游返回：" + d) if d else ""
+    if code in (401, 403):
+        return ("API Key 无效或没有权限（HTTP %d）：Key 可能复制不完整、已过期、"
+                "或不属于该端点%s" % (code, tail))
+    if code == 404:
+        if "model" in low or "模型" in d:
+            return "模型 ID 不被该端点支持（HTTP 404）：请把模型名改成平台提供的 ID%s" % tail
+        return "端点路径不存在（HTTP 404）：请检查 base_url 是否以 /v1 结尾%s" % tail
+    if code == 429:
+        return "触发限流或额度不足（HTTP 429）%s" % tail
+    if code == 413:
+        return "请求体过大（HTTP 413）：请减少对话长度%s" % tail
+    if code == 400:
+        if (any(k in low for k in ("context", "length", "token", "too long", "too many"))
+                or any(k in d for k in ("上下文", "容量", "过长", "超出"))):
+            return "请求超出模型上下文容量（HTTP 400）%s" % tail
+        return "上游拒绝请求（HTTP 400）%s" % tail
+    if code >= 500:
+        return "上游服务故障（HTTP %d）%s" % (code, tail)
+    return "上游错误 HTTP %s%s" % (code, (" " + d) if d else "")
+
+
+def _explain_net_error(e):
+    """网络类错误：超时/解析失败/拒绝连接，给出可检查的点。"""
+    s = str(e)
+    low = s.lower()
+    if "timed out" in low or "timeout" in low:
+        return "连接超时：端点无响应。请检查地址是否正确、本机网络能否访问该域名"
+    if "getaddrinfo" in low or "name or service not known" in low:
+        return "域名无法解析：端点地址可能写错了"
+    if "refused" in low:
+        return "连接被拒绝：端点地址或端口有误，服务未在监听"
+    return "网络错误：%s（请检查端点与网络）" % s
 
 
 # ---------- 原有接口（保持兼容，行为不变） ----------
@@ -63,9 +105,14 @@ def chat(endpoint, model, api_key, messages, stream=False):
     try:
         resp = _post(_endpoint_url(endpoint), payload, api_key)
     except urllib.error.HTTPError as e:
-        return False, "上游错误 HTTP %s" % e.code
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8", "ignore")[:300]
+        except Exception:
+            pass
+        return False, _explain_http_error(e.code, detail)
     except Exception as e:  # 网络错误等
-        return False, "上游失败: %s" % e
+        return False, _explain_net_error(e)
 
     if not stream:
         try:
@@ -133,7 +180,7 @@ class _ToolCallAccum:
         return out
 
 
-def chat_stream_events(base, model, api_key, messages, tools=None, timeout=None):
+def chat_stream_events(base, model, api_key, messages, tools=None, timeout=None, stop_event=None):
     """发起一次流式请求，返回 (ok, generator)。
 
     generator 产出 ("text"|"tool_call"|"done"|"error", payload) 事件。
@@ -153,19 +200,22 @@ def chat_stream_events(base, model, api_key, messages, tools=None, timeout=None)
             detail = e.read().decode("utf-8", "ignore")[:300]
         except Exception:
             pass
-        msg = "上游错误 HTTP %s" % e.code
-        if detail:
-            msg += " " + detail
+        msg = _explain_http_error(e.code, detail)
         return False, iter([("error", {"kind": "http", "code": e.code, "msg": msg})])
     except Exception as e:
-        return False, iter([("error", {"kind": "net", "msg": "上游失败: %s" % e})])
+        return False, iter([("error", {"kind": "net", "msg": _explain_net_error(e)})])
 
     def gen():
         acc = _ToolCallAccum()
         content = []
         finish = ""
+        usage = None
+        stopped = False
         try:
             for raw in resp:
+                if stop_event is not None and stop_event.is_set():
+                    stopped = True
+                    break
                 line = raw.decode("utf-8", "replace").strip()
                 if not line.startswith("data:"):
                     continue
@@ -175,6 +225,12 @@ def chat_stream_events(base, model, api_key, messages, tools=None, timeout=None)
                 try:
                     choice = json.loads(body)["choices"][0]
                 except Exception:
+                    # 有些帧只有 usage 没有 choices
+                    try:
+                        u = json.loads(body).get("usage")
+                        if u: usage = u
+                    except Exception:
+                        pass
                     continue
                 delta = choice.get("delta") or {}
                 if delta.get("content"):
@@ -196,6 +252,6 @@ def chat_stream_events(base, model, api_key, messages, tools=None, timeout=None)
         for c in calls:
             yield ("tool_call", c)
         yield ("done", {"content": "".join(content), "tool_calls": calls,
-                        "finish_reason": finish})
+                        "finish_reason": finish, "usage": usage, "stopped": stopped})
 
     return True, gen()

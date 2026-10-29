@@ -35,6 +35,44 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import struct
+
+
+def read_gguf_context_length(path):
+    """读 GGUF 头部元数据里的 context_length（模型原生上下文上限）。
+
+    只扫 KV 表找键名含 'context_length' 的 uint32 值，不解析张量数据。
+    失败返回 0。
+    """
+    if not path or not os.path.isfile(path):
+        return 0
+    try:
+        with open(path, "rb") as f:
+            magic = f.read(4)
+            if magic != b"GGUF":
+                return 0
+            f.read(4)          # version
+            f.read(8)          # tensor_count
+            kv_count = struct.unpack("<Q", f.read(8))[0]
+            SZ = {0:1,1:1,2:2,3:2,4:4,5:4,6:4,7:1,10:8,11:8,12:8}
+            for _ in range(kv_count):
+                klen = struct.unpack("<Q", f.read(8))[0]
+                key = f.read(klen).decode("utf-8", "ignore")
+                vtype = struct.unpack("<I", f.read(4))[0]
+                if "context_length" in key and vtype == 4:
+                    return struct.unpack("<I", f.read(4))[0]
+                if vtype == 8:  # string
+                    slen = struct.unpack("<Q", f.read(8))[0]
+                    f.read(slen)
+                elif vtype == 9:  # array
+                    etype = struct.unpack("<I", f.read(4))[0]
+                    alen = struct.unpack("<Q", f.read(8))[0]
+                    f.read(SZ.get(etype, 4) * alen)
+                else:
+                    f.read(SZ.get(vtype, 4))
+    except Exception:
+        return 0
+    return 0
 
 # 引擎生命周期状态
 STOPPED = "stopped"
@@ -84,18 +122,32 @@ class LocalEngine:
         self.binary = self._abs(cfg.get("local_engine_binary", "")) or ""
         self.host = cfg.get("local_engine_host", "127.0.0.1")
         self.port = int(cfg.get("local_engine_port", 8099))
-        self.ctx_size = int(cfg.get("local_engine_ctx", 4096))
         self.threads = int(cfg.get("local_engine_threads", 0)) or (os.cpu_count() or 4)
         self.gpu_layers = int(cfg.get("local_engine_gpu_layers", 0))
         self.extra_args = [a for a in str(cfg.get("local_engine_extra_args", "")).split()
                            if a]
         self.ready_timeout = int(cfg.get("local_engine_ready_timeout", 90))
         self.model_path = cfg.get("local_engine_model", "")
+        # 上下文：0=自动读模型 GGUF 里的 context_length（模型原生上限）
+        self.ctx_size = int(cfg.get("local_engine_ctx", 4096))
+        self.model_n_ctx = 0   # 从 GGUF 读到的模型原生上下文上限
         self.proc = None
         self.state = STOPPED
         self.last_error = ""
         self.started_at = 0.0
         self._lock = threading.Lock()
+
+    def _resolve_ctx(self):
+        """确定实际上下文窗口。配置为 0 时自动读模型 GGUF 的 context_length。"""
+        want = self.ctx_size
+        if want and want > 0:
+            self._actual_ctx = want
+            return want
+        mp = self._abs(self.model_path)
+        n = read_gguf_context_length(mp)
+        self.model_n_ctx = n
+        self._actual_ctx = n or 4096
+        return self._actual_ctx
 
     def _abs(self, p):
         if not p:
@@ -115,7 +167,7 @@ class LocalEngine:
             return None
         cmd = [self.binary, "--model", model,
                "--host", self.host, "--port", str(self.port),
-               "--ctx-size", str(self.ctx_size),
+               "--ctx-size", str(self._resolve_ctx()),
                "--threads", str(self.threads)]
         if self.gpu_layers:
             cmd += ["--n-gpu-layers", str(self.gpu_layers)]
@@ -280,6 +332,6 @@ class LocalEngine:
             "model": self._abs(self.model_path) or "",
             "threads": self.threads,
             "gpu_layers": self.gpu_layers,
-            "ctx_size": self.ctx_size,
+            "ctx_size": getattr(self, "_actual_ctx", 0) or self.ctx_size,
             "last_error": self.last_error,
         }

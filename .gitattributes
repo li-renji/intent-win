@@ -1,0 +1,37 @@
+# ===== 换行符策略 =====
+# 仓库内存 LF（跨平台一致），按需检出：
+#   * Windows 批处理必须 CRLF，否则 cmd 解析异常
+#   * Shell 脚本必须 LF，否则报 "bad interpreter: /bin/sh^M"
+#   * Python 源码保持 LF（避免 pyc 缓存抖动、diff 噪声）
+
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+*.sh    text eol=lf
+*.py    text eol=lf
+*.pyw   text eol=lf
+*.js    text eol=lf
+*.ts    text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.json  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+
+# 二进制：禁止任何换行符/文本转换
+*.jpg   binary
+*.jpeg  binary
+*.png   binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.exe   binary
+*.dll   binary
+*.so    binary
+*.bin   binary
+*.onnx  binary
+*.gguf  binary
+*.key   binary

@@ -21,7 +21,7 @@ _SCROLL_PX = {"down": 600, "up": -600, "top": -999999, "bottom": 999999}
 class WebView2Adapter:
     def __init__(self, cfg):
         self.cfg = cfg
-        self.window = None
+        self._window = None
         self._ready = threading.Event()
         self.error = None
 
@@ -36,22 +36,22 @@ class WebView2Adapter:
 
     def _run(self, url):
         try:
-            self.window = webview.create_window(
-                "奇点浏览器 · qd-agent",
+            self._window = webview.create_window(
+                "intent 浏览器",
                 url,
                 width=self.cfg["browser_width"],
                 height=self.cfg["browser_height"],
             )
-            self.window.events.loaded += lambda: self._ready.set()
+            self._window.events.loaded += lambda: self._ready.set()
             # 独立模式(main.py)才启动事件循环；GUI 应用模式(app.py)下循环已运行
-            if not webview.windows or all(w is self.window for w in webview.windows):
+            if not webview.windows or all(w is self._window for w in webview.windows):
                 webview.start(gui="edgechromium")
         except Exception as e:
             self.error = "WebView2 启动失败: %s" % e
             self._ready.set()
 
     def available(self):
-        return self.window is not None and self._ready.is_set() and not self.error
+        return self._window is not None and self._ready.is_set() and not self.error
 
     # ---- JS 桥 ----
     def _js(self, script, timeout=15):
@@ -62,7 +62,7 @@ class WebView2Adapter:
 
         def _task():
             try:
-                box["r"] = self.window.evaluate_js(script)
+                box["r"] = self._window.evaluate_js(script)
             except Exception as e:
                 box["err"] = str(e)
             done.set()
@@ -89,7 +89,7 @@ class WebView2Adapter:
                 return "NAVIGATE 需要 url"
             if "://" not in url:
                 url = "https://" + url
-            self.window.load_url(url)
+            self._window.load_url(url)
             return "已导航: %s" % url
         if action == "SNAPSHOT":
             data = self._js(protocol._SNAPSHOT_JS)
@@ -123,6 +123,6 @@ class WebView2Adapter:
         if action == "FORWARD":
             return "OK" if self._js("history.forward(); 'OK'") else "超时"
         if action == "RELOAD":
-            self.window.load_url(self.window.get_current_url())
+            self._window.load_url(self._window.get_current_url())
             return "已刷新"
         return "未知动作"

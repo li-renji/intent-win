@@ -1,0 +1,30 @@
+name: docgen
+version: 0.1
+desc: 生成 Office 文档（Word/Excel/PPT）：用户要"做个PPT""出份周报""生成表格"时，直接产出真实文件
+
+# 文档生成（docgen 工具）
+
+## 何时用
+用户要求产出文档 / 报表 / 幻灯片 / 表格文件时。
+例：「做一份项目周报 PPT」「出份本月销售表」「写份会议纪要 Word」。
+
+## 怎么做
+直接调用 **docgen** 工具（不要自己拼 Python 代码去生成），参数：
+
+- kind: docx（Word）/ xlsx（Excel）/ pptx（PPT）
+- title: 文档标题
+- outline: 章节数组，每项形如 {heading: "章节标题", bullets: ["要点1", "要点2"]}
+- table: （可选）{headers: ["列1","列2"], rows: [["a","1"],["b","2"]]}
+- path: （可选）输出绝对路径；不给则默认存到桌面
+
+## 示例
+用户：「做一份项目周报 PPT」
+→ docgen(kind="pptx", title="项目周报",
+    outline=[{heading:"本周进展", bullets:["完成登录模块","修复3个缺陷"]},
+             {heading:"下周计划", bullets:["接入支付","压测"}])
+
+## 注意
+- 生成成功后**把文件的绝对路径告诉用户**（用户可直接打开）。
+- 依赖 python-docx / openpyxl / python-pptx，安装本技能时已一并装好；
+  若报缺库，用 code 工具执行 pip install python-docx openpyxl python-pptx。
+- 内容以用户给的信息为准；信息不足时先问清要点，不要编造数据。

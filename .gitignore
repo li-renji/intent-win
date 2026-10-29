@@ -6,12 +6,24 @@ __pycache__/
 *.pyc
 
 # 本地密钥与令牌（绝不能入库；配好后只在你自己机器上）
+# ⚠️ 配置.qdai 内含 api_key / 模型配置，绝不能提交：
+#    仓库只提供 配置.example.qdai（同名键、值为空），新机 clone 后复制过去再填自己的 key
+配置.qdai
 pc_bridge.token
 配置.local.qdai
+
+# 知识库索引（运行时生成，README 已声明不入库）
+kb/
+
+# 长期记忆持久化（运行时生成，跨会话累积，属个人数据）
+memories/
 
 # 本地模型（GB 级，用 配置.qdai 的 local_engine_model 指向即可）
 models/*
 !models/.gitkeep
+
+# 推理引擎二进制（llama.cpp 官方 release 下载，非本仓库源码；clone 后按 README 自取）
+engine/
 
 # 开发时临时文件
 .idea/
@@ -19,3 +31,9 @@ models/*
 *.swp
 build/
 dist/
+
+# 手机网关真实密钥（本地用，绝不入库；源码改从环境变量 PHONE_KEY / phone.key 读取）
+phone.key
+
+# 系统备份（个人隐私数据，非项目源码）
+backups/

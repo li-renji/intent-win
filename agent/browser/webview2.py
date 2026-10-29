@@ -37,7 +37,7 @@ class WebView2Adapter:
     def _run(self, url):
         try:
             self.window = webview.create_window(
-                "奇点浏览器 · qd-agent",
+                "intent 浏览器",
                 url,
                 width=self.cfg["browser_width"],
                 height=self.cfg["browser_height"],

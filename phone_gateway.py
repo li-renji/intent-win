@@ -9,7 +9,7 @@
      本网关对超时做自动重试 + 退避，扛过短暂的冻结窗口。
 
 用法：
-  python phone_gateway.py [--port 9997] [--phone <手机IP>:9999] [--retries 3]
+  python phone_gateway.py [--port 9997] [--phone 192.168.3.4:9999] [--retries 3]
   WorkBuddy 自定义模型配置：
       url  = http://127.0.0.1:9997/v1
       apiKey = <手机 App 的 key>（网关会替换成手机真实 key）
@@ -25,15 +25,23 @@ import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-PHONE_HOST = "<手机IP>"
+PHONE_HOST = "192.168.3.4"
 PHONE_PORT = 9999
-PHONE_KEY = "<你的API Key>"
+# 手机网关密钥：禁止写死进源码（会随仓库泄露到 GitHub）。
+# 读取顺序：环境变量 PHONE_KEY → 同目录 gitignore 的 phone.key（本地开发放真实 key）。
+PHONE_KEY = (os.environ.get("PHONE_KEY") or "").strip() or (open(pkp).read().strip() if os.path.exists(pkp := os.path.join(os.path.dirname(os.path.abspath(__file__)), "phone.key")) else "")
 LISTEN_PORT = 9997
 RETRIES = 3
 RETRY_BACKOFF = 2.0
-PHONE_TIMEOUT = 25.0  # 单次请求超时：手机正常响应 0.05~3s，25s 足够判死并进入重试
+PHONE_TIMEOUT = 45.0  # 普通对话单次超时：手机 4B(思考模型)实测 17~25s，25s 太贴近临界，放宽到 45s
+# /agent/run 是「手机内部跑完整 Agent 循环」：最多 8 轮串行推理，手机侧自身预算 120s。
+# 若仍按 25s 掐断，必然每次超时→重试→全挂→504。故给 Agent 端点单独的长超时。
+# 超时链必须单调递增，否则上一层会先掐断下一层：
+#   手机 /agent/run 预算(120s) < 网关 AGENT_TIMEOUT(150s) < 调用方 _tool_phone(180s)
+AGENT_TIMEOUT = 150.0
+AGENT_RETRIES = 1       # 单次已 150s，重试只会超过调用方 180s 上限，无意义
 # 手机地址候选（DHCP 会变，逐个探测挑活的）
-PHONE_CANDIDATES = ["<手机IP>:9999", "<备用手机IP>:9999"]
+PHONE_CANDIDATES = ["192.168.3.4:9999", "192.168.3.3:9999"]
 _active_phone = {"host": PHONE_HOST, "port": PHONE_PORT, "ts": 0.0}
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gateway.log")
 
@@ -220,11 +228,19 @@ def phone_request(path, body=None, method="GET", timeout=None):
         return False, 0, ("[%s] %s" % (type(e).__name__, e)).encode("utf-8")
 
 
-def call_with_retry(path, body=None, method="GET"):
+def call_with_retry(path, body=None, method="GET", timeout=None, retries=None):
+    """向手机发请求并按需重试。
+
+    timeout 默认为 PHONE_TIMEOUT（普通对话）；
+    /agent/run 这类「手机内部多轮推理」的端点应传 AGENT_TIMEOUT，
+    否则会被 25s 提前掐断，表现为「响应过慢 / 调用失败」。
+    """
+    limit = RETRIES if retries is None else retries
+    tmo = PHONE_TIMEOUT if timeout is None else timeout
     last = (False, 0, b"")
-    for attempt in range(1, RETRIES + 1):
+    for attempt in range(1, limit + 1):
         t0 = time.time()
-        ok, status, data = phone_request(path, body, method)
+        ok, status, data = phone_request(path, body, method, timeout=tmo)
         ms = int((time.time() - t0) * 1000)
         if ok:
             log("%s %s -> %s %dms (attempt %d)" % (method, path, status, ms, attempt))
@@ -235,7 +251,7 @@ def call_with_retry(path, body=None, method="GET"):
         if status and status != 0:
             # 手机明确回了错误码（如 401/404/503），重试无意义
             break
-        if attempt < RETRIES:
+        if attempt < limit:
             time.sleep(RETRY_BACKOFF * attempt)
     return last
 
@@ -286,8 +302,13 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
 
         # 手机端 Agent 端点：原样转发，不裁剪（手机侧自己会限长）
+        # 注意：必须用 AGENT_TIMEOUT，不能用普通的 PHONE_TIMEOUT(45s)——
+        # /agent/run 是手机内部多轮串行推理（最多 8 轮，预算 120s），
+        # 用短超时会 100% 超时并重试失败，这正是「响应过慢、调用失败」的来源。
         if path.endswith("/agent/run"):
-            ok, status, data = call_with_retry("/agent/run", body, "POST")
+            ok, status, data = call_with_retry("/agent/run", body, "POST",
+                                              timeout=AGENT_TIMEOUT,
+                                              retries=AGENT_RETRIES)
             if ok:
                 self._reply(status, data)
             else:
@@ -318,13 +339,16 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     global PHONE_HOST, PHONE_PORT, PHONE_KEY, LISTEN_PORT, RETRIES, PHONE_TIMEOUT, PHONE_CANDIDATES
+    global AGENT_TIMEOUT, AGENT_RETRIES
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=LISTEN_PORT)
     ap.add_argument("--phone", default=",".join(PHONE_CANDIDATES),
-                    help="手机地址候选，逗号分隔，如 <手机IP>:9999,<备用手机IP>:9999")
+                    help="手机地址候选，逗号分隔，如 192.168.3.4:9999,192.168.3.3:9999")
     ap.add_argument("--key", default=PHONE_KEY)
     ap.add_argument("--retries", type=int, default=RETRIES)
     ap.add_argument("--timeout", type=float, default=PHONE_TIMEOUT)
+    ap.add_argument("--agent-timeout", type=float, default=AGENT_TIMEOUT,
+                    help="/agent/run 单次超时（手机内部多轮串行推理，默认 200s）")
     args = ap.parse_args()
     PHONE_CANDIDATES = [x.strip() for x in args.phone.split(",") if x.strip()]
     PHONE_HOST, _, p = PHONE_CANDIDATES[0].partition(":")
@@ -333,6 +357,7 @@ def main():
     LISTEN_PORT = args.port
     RETRIES = args.retries
     PHONE_TIMEOUT = args.timeout
+    AGENT_TIMEOUT = args.agent_timeout
 
     srv = ThreadingHTTPServer(("127.0.0.1", LISTEN_PORT), Handler)
     log("网关已启动 http://127.0.0.1:%d/v1  ->  手机 %s  (重试 %d 次, 单次超时 %ss)"

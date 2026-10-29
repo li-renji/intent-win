@@ -20,7 +20,14 @@
 3. 返回值里的 calls 用 OpenAI tool_calls 结构，loop 无需区分来源。
 """
 import json
+import os
 import re
+
+# 项目根目录：按本文件位置推导（agent/ 的上两级）。
+# 工作台等"打开XXX"类硬触发规则不再硬编码于此，改为从 skills/*.qdskill 的
+# trigger/action/run 头动态加载（见 _load_skill_rules），实现"丢文件、重启即生效"。
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_SKILLS_DIR = os.path.join(_PROJECT_ROOT, "skills")
 
 # ---------- Tier 1：标准文本协议 [[TOOL: name {json}]] ----------
 _T1_RE = re.compile(r"\[\[\s*TOOL\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*(\{.*?\})\s*\]\]",
@@ -69,7 +76,62 @@ _INTENT_RULES = [
      "browser", {"cmd": "SNAPSHOT"}),
     (("记住", "记一下", "帮我记"),
      "memo", {"op": "write"}),
+    # 注：工作台等"打开XXX"类硬触发已外置到 skills/*.qdskill（trigger/action/run 头），
+    # 由 _load_skill_rules 动态加载，不再硬编码于此。
 ]
+
+
+# ---------- 从 skills/*.qdskill 加载"硬触发"规则（文件驱动，重启即生效） ----------
+def _load_skill_rules(skills_dir, project_root):
+    """扫描技能目录，把带 trigger + run 头的 .qdskill 注册成 Tier3 硬触发规则。
+
+    头格式（均为可选，只有同时含 trigger 与 run 才生效）：
+        trigger: 短语1,短语2,...        # 命中即触发（子串匹配，同 _INTENT_RULES）
+        action:  code                  # 目前统一经 code 工具执行 run（默认 code）
+        run:     cmd /c "@ROOT@/workbench/wb_start.cmd"   # 完整命令；@ROOT@ 替换为项目根
+    没有这些头的技能文件（纯 recipe）不受影响，仍只经 skills 摘要机制生效。
+    这样"打开工作台"之类集成变成：丢一个 .qdskill 文件 + 重启，零改 intent.py。
+    """
+    rules = []
+    if not os.path.isdir(skills_dir):
+        return rules
+    for fn in sorted(os.listdir(skills_dir)):
+        if not fn.endswith(".qdskill"):
+            continue
+        path = os.path.join(skills_dir, fn)
+        try:
+            with open(path, encoding="utf-8") as f:
+                lines = f.read().splitlines()
+        except Exception:
+            continue
+        trigger = action = run = None
+        # 只解析头部（前 30 行），遇到正文（非已知头且非空非注释行）即停止
+        for line in lines[:30]:
+            s = line.strip()
+            if s.startswith("trigger:"):
+                trigger = s[len("trigger:"):].strip()
+            elif s.startswith("action:"):
+                action = s[len("action:"):].strip()
+            elif s.startswith("run:"):
+                run = s[len("run:"):].strip()
+            elif s and not s.startswith("#") and ":" in s and \
+                 s.split(":", 1)[0].strip() in ("name", "version", "desc"):
+                continue  # 已知头字段，继续读后续头部
+            else:
+                if s and not s.startswith("#"):
+                    break  # 进入正文，停止头部解析
+                # 空行或注释行：继续
+        if not trigger or not run:
+            continue
+        phrases = [p.strip() for p in trigger.split(",") if p.strip()]
+        if not phrases:
+            continue
+        run = run.replace("@ROOT@", project_root).replace("@root@", project_root)
+        rules.append((tuple(phrases), "code", {"lang": "shell", "code": run}))
+    return rules
+
+
+_SKILL_RULES = _load_skill_rules(_SKILLS_DIR, _PROJECT_ROOT)
 
 
 def _mk_call(name, args, seq):
@@ -171,7 +233,7 @@ def _parse_t3(text, enabled, seen):
     签名按工具名而非短语：措辞重叠（"桌面上有什么"/"有什么文件"）
     会绕过短语级签名，按工具去重才能保证一次任务只助推一次。
     """
-    for phrases, name, args in _INTENT_RULES:
+    for phrases, name, args in _INTENT_RULES + _SKILL_RULES:
         if not _valid(name, enabled):
             continue
         sig = "t3:" + name

@@ -1,3 +1,0 @@
-# 本地模型目录（放置 GGUF 模型，形如 models/<模型名>/<模型>.gguf）
-# 内容不入库（见 .gitignore），首次克隆后此目录为空属正常。
-# 填入模型后用：python -u -m agent.model_mgr scan 查看识别结果。

@@ -7,6 +7,7 @@
 """
 import asyncio
 import json
+import os
 import time
 import urllib.parse
 
@@ -75,7 +76,7 @@ async def _dispatch_6800(ctx, cmd):
             "就绪" if ctx.browser.available() else ("未启用" if ctx.browser.error else "未启动"),
             ",".join(ctx.bus.enabled()) or "无")
     if head == "HELLO":
-        return "你好，这里是奇点Windows Agent。能力摘要：%s" % ", ".join(ctx.bus.enabled())
+        return "你好，这里是 intent（Windows Agent）。能力摘要：%s" % ", ".join(ctx.bus.enabled())
     if head == "ECHO":
         return rest
     if head == "HELP":
@@ -103,7 +104,9 @@ async def chat_once(ctx, user_text, scenario="chat"):
     base, model, key = ctx.endpoint()
     if not base:
         return "LLM 未配置（检查 配置.qdai 的 base_url / api_key）"
-    system = build_system_prompt(ctx.bus.enabled(), scenario=scenario)
+    system = build_system_prompt(
+        ctx.bus.enabled(), scenario=scenario,
+        skills_dir=os.path.join(ctx.cfg["project_root"], "skills"))
     facts = ctx.history.inject()
     messages = [{"role": "system", "content": (system + ("\n" + facts if facts else ""))},
                 {"role": "user", "content": user_text}]
