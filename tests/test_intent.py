@@ -102,4 +102,6 @@ c, t, tier = extract(None, EN, set())
 check("None 输入安全", tier == 0 and not c)
 
 print("\n结果: %d/%d 通过" % (sum(1 for r in results if r), len(results)))
-sys.exit(0 if all(results) else 1)
+# 只在直接运行时才退出；被 unittest discover 导入时不能抛 SystemExit
+if __name__ == "__main__":
+    sys.exit(0 if all(results) else 1)

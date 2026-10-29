@@ -174,7 +174,10 @@ EDITABLE_KEYS = ("llm_mode", "base_url", "api_key", "model",
 def save_settings(cfg, updates):
     """把设置面板的修改写回 配置.qdai（保留注释与未涉及行），并热更新运行时 cfg。"""
     path = os.path.join(cfg["project_root"], "配置.qdai")
-    lines = open(path, encoding="utf-8").read().splitlines() if os.path.exists(path) else []
+    lines = []
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            lines = f.read().splitlines()
     seen = set()
     out = []
     for line in lines:

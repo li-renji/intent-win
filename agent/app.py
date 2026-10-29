@@ -14,6 +14,7 @@ import os
 import sys
 import threading
 import time
+import urllib.parse
 import uuid
 
 try:
@@ -241,6 +242,77 @@ class Api:
             return {"ok": True, "settings": self.get_settings()}
         except Exception as e:
             return {"ok": False, "error": str(e)}
+
+    # ---------- 云端 API 接入：验证 -> 选模型 -> 存档 ----------
+    def api_probe(self, base_url, api_key):
+        """第一步：验证接口与 Key，并尝试拉取该厂商提供的模型清单。
+
+        返回 {"ok","key_ok","models","needs_manual","message","base_url"}：
+            ok           —— Key 可用且拿到了模型清单
+            needs_manual —— 厂商不提供清单（如自建网关 / 本地推理软件），
+                           需用户手填模型名，再走 api_probe_model 验证
+        """
+        from .provider import check_endpoint
+        try:
+            return check_endpoint(base_url, api_key)
+        except Exception as e:
+            return {"ok": False, "key_ok": False, "models": [], "needs_manual": False,
+                    "message": "验证失败：%s" % e, "base_url": (base_url or "").strip()}
+
+    def api_probe_model(self, base_url, api_key, model):
+        """第三步的兜底：用户手填模型名后，用一次极小的真实请求验证。"""
+        from .provider import probe_model
+        try:
+            return probe_model(base_url, api_key, model)
+        except Exception as e:
+            return {"ok": False, "message": "验证失败：%s" % e}
+
+    def api_add_profile(self, base_url, api_key, model, name=None, tier=None):
+        """把验证通过的 API 存成模型档案并立即启用。
+
+        同一 base_url + model 只存一条，重复添加是覆盖而非堆积。
+        """
+        base_url = (base_url or "").strip().rstrip("/")
+        api_key = (api_key or "").strip()
+        model = (model or "").strip()
+        if not base_url or not model:
+            return {"ok": False, "error": "接口地址和模型名都不能为空"}
+        profs = self._load_profiles()
+        # 同址同模型 -> 覆盖更新（顺带更新 Key）
+        hit = next((p for p in profs
+                    if (p.get("base_url") or "").rstrip("/") == base_url
+                    and (p.get("model") or "") == model), None)
+        if hit is None:
+            hit = {"llm_mode": "cloud", "base_url": base_url, "model": model}
+            profs.append(hit)
+        hit["llm_mode"] = "cloud"
+        hit["base_url"] = base_url
+        hit["model"] = model
+        hit["api_key"] = api_key
+        if tier:
+            hit["tier"] = tier
+        else:
+            # 用户手填模型名（厂商没给清单）：按名字推断档位，好让菜单显示贵/便宜
+            try:
+                from .provider import tier_of
+                hit["tier"] = tier_of(model)["tier"]
+            except Exception:
+                pass
+        # 用户填了名字就用用户的；没填才自动生成「模型 @ 域名」
+        if name and str(name).strip():
+            hit["name"] = str(name).strip()
+        elif not hit.get("name"):
+            try:
+                host = urllib.parse.urlsplit(base_url).hostname or base_url
+            except Exception:
+                host = base_url
+            hit["name"] = "%s @ %s" % (model, host)
+        self.cfg["profiles"] = profs
+        save_settings(self.cfg, {"profiles": json.dumps(profs, ensure_ascii=False)})
+        # 立即启用
+        self.save_settings({"llm_mode": "cloud", "base_url": base_url,
+                            "model": model, "api_key": api_key})
+        return {"ok": True, "profile": hit, "settings": self.get_settings()}
 
     @staticmethod
     def _parse_manifest(path):

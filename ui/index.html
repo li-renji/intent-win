@@ -506,6 +506,8 @@
   .ms:hover{border-color:var(--border-strong);color:var(--txt);background:var(--hover-3)}
   .ms-dot{width:14px;height:14px;border-radius:50%;background:var(--me-grad);flex-shrink:0}
   .ms-caret{font-size:11px;opacity:.7}
+  /* 模型名后面的档位徽标：在 28px 高的胶囊里要更紧凑 */
+  .ms .tier-badge{font-size:9px;padding:2px 5px;line-height:1.3}
   /* 快捷菜单（＋ / 模型切换） */
   .pop{position:absolute;bottom:calc(100% + 10px);left:0;width:300px;max-height:62vh;overflow-y:auto;
        background:var(--modal-bg);border:1px solid var(--border);border-radius:16px;
@@ -648,6 +650,60 @@
            background:var(--bg-input);color:var(--txt);padding:0 12px;font-size:13px;
            font-family:inherit;outline:none}
   .m-input:focus{border-color:var(--me1)}
+
+  /* ---- 云端 API 接入向导：验证 → 选模型 → 落档 ---- */
+  .wiz-step{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:12px;
+       border:1px solid var(--border);background:var(--bg-input);margin-bottom:8px;cursor:pointer;
+       transition:.16s}
+  .wiz-step:hover{border-color:var(--border-strong)}
+  .wiz-step.on{border-color:var(--me1);box-shadow:0 0 0 3px rgba(124,131,255,.15)}
+  .wiz-step.locked{opacity:.5;cursor:not-allowed}
+  .wiz-radio{width:16px;height:16px;border-radius:50%;border:2px solid var(--ter);flex-shrink:0;
+       display:flex;align-items:center;justify-content:center}
+  .wiz-step.on .wiz-radio{border-color:var(--me1)}
+  .wiz-step.on .wiz-radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--me1)}
+  .wiz-tx{flex:1;min-width:0}
+  .wiz-name{font-size:13.5px;font-weight:600;color:var(--txt);display:flex;align-items:center;gap:8px;
+       flex-wrap:wrap}
+  .wiz-desc{font-size:11.5px;color:var(--sub);margin-top:3px;line-height:1.55;word-break:break-word}
+  .wiz-price{font-size:11px;color:var(--warn);font-family:"JetBrains Mono",Consolas,monospace}
+  /* 档位徽标：旗舰=紫 / 均衡=蓝 / 轻量=绿 */
+  .tier-badge{font-size:10px;line-height:1;padding:4px 7px;border-radius:99px;font-weight:600;
+       border:1px solid transparent;white-space:nowrap}
+  .tier-flagship{color:#c4b5fd;background:rgba(167,139,250,.16);border-color:rgba(167,139,250,.4)}
+  .tier-balanced{color:#7dd3fc;background:rgba(125,211,252,.14);border-color:rgba(125,211,252,.36)}
+  .tier-economy{color:#86efac;background:rgba(134,239,172,.14);border-color:rgba(134,239,172,.36)}
+  /* 浅色主题下徽标要够深，否则读不清 */
+  body.light .tier-flagship{color:#5b21b6;background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.42)}
+  body.light .tier-balanced{color:#0369a1;background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.4)}
+  body.light .tier-economy{color:#047857;background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4)}
+  /* 模型清单 */
+  .mlist{max-height:270px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;
+       background:var(--bg-input);padding:6px;margin-top:8px}
+  .mlist-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;
+       cursor:pointer;transition:.15s}
+  .mlist-row:hover{background:var(--hover-2)}
+  .mlist-row.on{background:rgba(124,131,255,.13)}
+  .mlist-main{flex:1;min-width:0}
+  .mlist-id{font-size:13px;font-weight:600;color:var(--txt);font-family:"JetBrains Mono",Consolas,monospace;
+       word-break:break-all}
+  .mlist-meta{font-size:11px;color:var(--ter);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .mlist-group{font-size:11px;color:var(--sub);font-weight:600;padding:9px 10px 5px;letter-spacing:.4px;
+       display:flex;align-items:center;gap:7px}
+  .mlist-group::after{content:"";flex:1;height:1px;background:var(--border)}
+  /* 接入状态条 */
+  .api-state{display:flex;align-items:flex-start;gap:10px;border-radius:12px;padding:12px 14px;
+       margin-bottom:14px;font-size:12.5px;line-height:1.6;border:1px solid transparent}
+  .api-state.ok{background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.32);color:var(--ok)}
+  .api-state.err{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.32);color:var(--danger)}
+  .api-state.warn{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.32);color:var(--warn)}
+  .api-state .s-ico{font-size:15px;flex-shrink:0;line-height:1.4}
+  .api-state .s-tx{flex:1;min-width:0}
+  /* 手动填模型名的兜底提示 */
+  .manual-hint{font-size:12px;color:var(--sub);background:rgba(251,191,36,.08);
+       border:1px dashed rgba(251,191,36,.4);border-radius:11px;padding:10px 12px;margin-bottom:14px;
+       line-height:1.6}
+  .manual-hint b{color:var(--warn)}
 
   /* ---- 个性化：主题选择卡片 ---- */
   .theme-opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:2px}
@@ -1055,6 +1111,66 @@
     </div>
   </div>
 
+  <!-- 云端 API 接入向导：验证 Key → 选模型 → 落档 -->
+  <div class="mask" id="apiMask">
+    <div class="modal settings glass" style="width:min(620px,94vw);height:auto;max-height:88vh">
+      <button class="set-close" title="关闭" onclick="hideApiWiz()">✕</button>
+      <div class="set-body">
+        <!-- 第一步：填地址与 Key，验证 -->
+        <div id="apiWizStep1">
+          <h4>添加云端 API</h4>
+          <div class="desc">填入厂商给的接口地址和 API Key，先验证能不能用，再从该厂商提供的模型里挑一个。验证只读取模型清单，<b>不消耗额度</b>。</div>
+          <div class="field">
+            <label>接口地址 Base URL</label>
+            <input type="text" id="api_base" placeholder="https://api.example.com/v1">
+          </div>
+          <div class="field">
+            <label>API Key</label>
+            <input type="password" id="api_key" placeholder="sk-...">
+          </div>
+          <div class="field">
+            <label>档案名称（可留空，自动生成「模型 @ 域名」）</label>
+            <input type="text" id="api_name" placeholder="如：公司网关 · 旗舰">
+          </div>
+          <div id="apiStateBox"></div>
+          <div class="modal-foot">
+            <button class="m-btn" onclick="hideApiWiz()">取消</button>
+            <button class="m-btn primary" id="apiVerifyBtn" onclick="apiVerify()">验证并获取模型</button>
+          </div>
+        </div>
+        <!-- 第二步：从厂商清单里选一个模型 -->
+        <div id="apiWizStep2" style="display:none">
+          <h4>选择模型</h4>
+          <div class="desc" id="apiWizStep2Desc">该接口可用。下面是厂商提供的全部模型，已按档位排序——<b>旗舰</b>最强最贵，<b>均衡</b>适合日常，<b>轻量</b>最省钱。</div>
+          <div class="mlist" id="apiModelList"></div>
+          <div class="modal-foot">
+            <button class="m-btn" onclick="apiBackTo1()">上一步</button>
+            <button class="m-btn primary" id="apiUseBtn" onclick="apiUseModel()">使用选中的模型</button>
+          </div>
+        </div>
+        <!-- 第三步：厂商不给清单时，手动填模型名 -->
+        <div id="apiWizStep3" style="display:none">
+          <h4>手动填写模型名</h4>
+          <div class="manual-hint">这个接口<b>没有提供模型清单</b>——自建网关、本地推理软件（如 llama.cpp / Ollama）常见这种情况。<br>
+            请手动填写该模型的名字。填好后系统会发一次<b>极小的真实请求</b>（只输出 1 个 token）来确认它确实可用。</div>
+          <div class="field">
+            <label>模型名</label>
+            <input type="text" id="api_manual_model" placeholder="如 qwen2.5-7b-instruct / gpt-4o-mini">
+          </div>
+          <div class="field">
+            <label>档案名称（可留空，自动生成）</label>
+            <input type="text" id="api_manual_name" placeholder="如：本地推理 · 轻量">
+          </div>
+          <div id="apiManualState"></div>
+          <div class="modal-foot">
+            <button class="m-btn" onclick="apiBackTo1()">上一步</button>
+            <button class="m-btn primary" id="apiManualBtn" onclick="apiManualCheck()">验证并添加</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 市场弹窗：技能 / 插件 的统一安装、卸载、启停 -->
   <div class="mask" id="mktMask">
     <div class="modal settings glass">
@@ -1118,6 +1234,14 @@
         <div id="pane-model" class="set-pane">
           <h4>模型档案</h4>
           <div class="desc">选一个已存档案即可秒切 API；最下面「新建API」可新增一套空白配置。同一 API 只会存一条，不会重复。</div>
+          <div class="row2" style="margin-bottom:16px">
+            <div class="field" style="flex:1;margin-bottom:0">
+              <button class="m-btn primary" style="width:100%" onclick="openApiWiz()">＋ 添加云端 API（自动获取模型列表）</button>
+            </div>
+            <div class="field" style="flex:1;margin-bottom:0">
+              <button class="m-btn" style="width:100%" onclick="showSettings('model')">手动填写</button>
+            </div>
+          </div>
           <div class="field">
             <label>模型档案（默认显示当前使用）</label>
             <select id="s_profiles" onchange="onProfileChange()"></select>
@@ -1494,7 +1618,20 @@ function renderHistory(list){
 }
 function renderStatus(s){
   document.getElementById('dvEngine').textContent = s.engine + (s.llm ? '（已配置）' : '（未配置）');
-  document.getElementById('dvLlm').textContent = s.llm ? '已连接 ✓' : '未连接';
+  // 设备面板：把「当前用的哪个模型 + 什么档位 + 哪个接口」摊开说清楚，
+  // 免得用户不知道自己在调哪个模型、这个档位贵不贵
+  const dvLlm = document.getElementById('dvLlm');
+  if(dvLlm){
+    if(!s.llm){ dvLlm.textContent = '未连接'; }
+    else {
+      const mn = (window._settings && window._settings.model) || '';
+      const host = (window._settings && window._settings.base_url) || '';
+      let h = host;
+      try { h = new URL(host).hostname || host; } catch(e){}
+      dvLlm.innerHTML = '已连接 ✓ ' + esc(mn || '未指定模型') + ' ' + tierBadgeHtml(window._settings || {}) +
+        (h ? '<div style="font-size:11px;color:var(--ter);margin-top:3px">' + esc(h) + '</div>' : '');
+    }
+  }
   document.getElementById('dvBrowser').textContent = s.browser_text;
   document.getElementById('dvTools').textContent = (s.tools && s.tools.trim()) ? s.tools : '无';
   window._ctx = s.ctx || 4096;
@@ -2242,7 +2379,11 @@ async function refreshCtx(){
   let s;
   try { s = await pywebview.api.ctx_inspect(); }
   catch(e){ box.innerHTML = '<span style="color:var(--sub)">读取失败</span>'; return; }
-  document.getElementById('cxModel').textContent = s.model || '未配置';
+  const cxModel = document.getElementById('cxModel');
+  if(cxModel){
+    const tier = tierBadgeHtml(window._settings || {model: s.model || ''});
+    cxModel.innerHTML = esc(s.model || '未配置') + ' ' + tier;
+  }
   document.getElementById('cxCap').textContent = kfmt(s.capacity) + ' tok';
   document.getElementById('cxUsed').textContent = kfmt(s.estimated) + ' tok（' + s.ratio + '%）';
   document.getElementById('cxBar').style.width = Math.min(100, s.ratio) + '%';
@@ -2512,6 +2653,179 @@ async function delProfile(){
   await pywebview.api.save_settings({profiles: window._profiles});
 }
 
+/* ---------- 云端 API 接入向导 ----------
+   流程：填地址+Key → 后端验证并拉取模型清单 → 用户选一个 → 存为档案并启用
+        厂商不给清单时降级到第三步：手填模型名，用一次极小请求做真实验证   */
+let _apiWizModels = [];      // 厂商返回的模型清单
+let _apiWizPick = '';        // 当前选中的模型 id
+let _apiWizBase = '';        // 归一后的 base_url
+let _apiWizKey = '';         // 本次验证用的 Key（只在内存里）
+
+function openApiWiz(){
+  document.getElementById('apiMask').classList.add('show');
+  document.body.classList.add('modal-open');
+  apiWizGo(1);
+  // 预填当前配置，省得用户重敲
+  try {
+    const s = window._settings || {};
+    document.getElementById('api_base').value = s.base_url || '';
+    document.getElementById('api_key').value = (s.api_key && !s.api_key.startsWith('<')) ? s.api_key : '';
+  } catch(e){}
+}
+function hideApiWiz(){
+  document.getElementById('apiMask').classList.remove('show');
+  document.body.classList.remove('modal-open');
+  _apiWizKey = '';   // 走人即清 Key，不留在内存
+}
+function apiWizGo(step){
+  ['apiWizStep1','apiWizStep2','apiWizStep3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = (i === step - 1) ? 'block' : 'none';
+  });
+}
+function apiWizState(boxId, kind, msg){
+  const box = document.getElementById(boxId);
+  if(!box) return;
+  const ico = {ok:'✓', err:'✕', warn:'!'}[kind] || '';
+  box.innerHTML = '<div class="api-state ' + kind + '"><span class="s-ico">' + ico +
+                   '</span><span class="s-tx">' + esc(msg) + '</span></div>';
+}
+async function apiVerify(){
+  const base = (document.getElementById('api_base').value || '').trim();
+  const key = (document.getElementById('api_key').value || '').trim();
+  const name = (document.getElementById('api_name').value || '').trim();
+  if(!base){ apiWizState('apiStateBox','err','请先填写接口地址（Base URL）'); return; }
+  if(!key){ apiWizState('apiStateBox','err','请先填写 API Key'); return; }
+  const btn = document.getElementById('apiVerifyBtn');
+  btn.disabled = true; btn.textContent = '验证中…';
+  apiWizState('apiStateBox','warn','正在验证 Key 并获取模型清单…');
+  let r;
+  try { r = await pywebview.api.api_probe(base, key); }
+  catch(e){ r = {ok:false, needs_manual:false, message:'调用失败：' + (e || '未知错误')}; }
+  btn.disabled = false; btn.textContent = '验证并获取模型';
+  _apiWizBase = (r && r.base_url) ? r.base_url : base;
+  _apiWizKey = key;
+  if(r && r.ok){
+    _apiWizModels = r.models || [];
+    if(!_apiWizModels.length){
+      apiWizState('apiStateBox','warn','Key 可用，但厂商没返回模型列表，请手动填写模型名');
+      document.getElementById('api_manual_name').value = name;
+      apiWizGo(3);
+      return;
+    }
+    apiWizState('apiStateBox','ok', r.message || ('已获取 ' + _apiWizModels.length + ' 个模型'));
+    renderApiModelList();
+    apiWizGo(2);
+    return;
+  }
+  if(r && r.needs_manual){
+    // 厂商不给清单：走手填模型名的兜底路径
+    apiWizState('apiStateBox','warn', r.message || '该接口不提供模型清单，请手动填写模型名');
+    document.getElementById('api_manual_name').value = name;
+    apiWizGo(3);
+    return;
+  }
+  apiWizState('apiStateBox','err', (r && r.message) || '验证失败');
+}
+function renderApiModelList(){
+  const box = document.getElementById('apiModelList');
+  if(!box) return;
+  if(!_apiWizModels.length){ box.innerHTML = '<div class="pop-empty">没有模型</div>'; return; }
+  // 按档位分组：旗舰 → 均衡 → 轻量
+  const groups = [
+    {tier:'flagship', label:'旗舰 · 最强，最贵'},
+    {tier:'balanced', label:'均衡 · 日常够用'},
+    {tier:'economy', label:'轻量 · 最便宜'},
+  ];
+  let html = '';
+  for(const g of groups){
+    const items = _apiWizModels.filter(m => m.tier === g.tier);
+    if(!items.length) continue;
+    html += '<div class="mlist-group">' + g.label + '（' + items.length + '）</div>';
+    items.forEach((m, idx) => {
+      const price = (m.price_in != null)
+        ? '<span class="wiz-price">输入 ¥' + Number(m.price_in).toFixed(2) + '/M tok</span>' : '';
+      const note = m.note ? '<span>' + esc(m.note) + '</span>' : '';
+      html += '<div class="mlist-row" data-id="' + esc(m.id) + '" onclick="apiPickModel(this)">' +
+              '<span class="mlist-main"><span class="mlist-id">' + esc(m.id) + '</span>' +
+              '<span class="mlist-meta">' + note + price + '</span></span>' +
+              '<span class="tier-badge tier-' + m.tier + '">' + esc(m.label) + '</span></div>';
+    });
+  }
+  box.innerHTML = html;
+  // 默认选中第一个（旗舰优先）
+  const first = box.querySelector('.mlist-row');
+  if(first) apiPickModel(first);
+}
+function apiPickModel(el){
+  const box = document.getElementById('apiModelList');
+  box.querySelectorAll('.mlist-row').forEach(r => r.classList.remove('on'));
+  el.classList.add('on');
+  _apiWizPick = el.getAttribute('data-id') || '';
+}
+function apiBackTo1(){
+  apiWizGo(1);
+  document.getElementById('apiStateBox').innerHTML = '';
+}
+async function apiUseModel(){
+  if(!_apiWizPick){ apiWizState('apiStateBox','err','请先选择一个模型'); apiWizGo(2); return; }
+  const name = (document.getElementById('api_name').value || '').trim();
+  const hit = _apiWizModels.find(m => m.id === _apiWizPick);
+  const tier = hit ? hit.tier : '';
+  const btn = document.getElementById('apiUseBtn');
+  btn.disabled = true; btn.textContent = '保存中…';
+  let r;
+  try {
+    r = await pywebview.api.api_add_profile(_apiWizBase, _apiWizKey, _apiWizPick, name, tier);
+  } catch(e){ r = {ok:false, error:'保存失败：' + (e || '')}; }
+  btn.disabled = false; btn.textContent = '使用选中的模型';
+  if(!r || !r.ok){
+    apiWizState('apiStateBox','err', (r && r.error) || '保存失败');
+    return;
+  }
+  window._settings = r.settings || window._settings;
+  window._profiles = (r.settings && r.settings.profiles) || window._profiles || [];
+  buildProfileOpts();
+  refreshModelName(r.settings);
+  hideApiWiz();
+  const tip = document.getElementById('saveTip');
+  if(tip){ tip.textContent = '✓ 已添加并启用：' + _apiWizPick; tip.style.visibility = 'visible'; }
+  renderStatus(await pywebview.api.get_status());
+}
+async function apiManualCheck(){
+  const mid = (document.getElementById('api_manual_model').value || '').trim();
+  const name = (document.getElementById('api_manual_name').value || '').trim();
+  if(!mid){ apiWizState('apiManualState','err','请填写模型名'); return; }
+  const btn = document.getElementById('apiManualBtn');
+  btn.disabled = true; btn.textContent = '验证中…';
+  apiWizState('apiManualState','warn','正在用该模型名做一次真实调用验证…');
+  let r;
+  try { r = await pywebview.api.api_probe_model(_apiWizBase, _apiWizKey, mid); }
+  catch(e){ r = {ok:false, message:'调用失败：' + (e || '')}; }
+  btn.disabled = false; btn.textContent = '验证并添加';
+  if(!r || !r.ok){
+    apiWizState('apiManualState','err', (r && r.message) || '验证失败');
+    return;
+  }
+  apiWizState('apiManualState','ok', r.message || '验证通过');
+  let saved;
+  try {
+    saved = await pywebview.api.api_add_profile(_apiWizBase, _apiWizKey, mid, name);
+  } catch(e){ saved = {ok:false, error:'保存失败：' + (e || '')}; }
+  if(!saved || !saved.ok){
+    apiWizState('apiManualState','err', (saved && saved.error) || '保存失败');
+    return;
+  }
+  window._settings = saved.settings || window._settings;
+  window._profiles = (saved.settings && saved.settings.profiles) || window._profiles || [];
+  buildProfileOpts();
+  refreshModelName(saved.settings);
+  hideApiWiz();
+  const tip = document.getElementById('saveTip');
+  if(tip){ tip.textContent = '✓ 已添加并启用：' + mid; tip.style.visibility = 'visible'; }
+  renderStatus(await pywebview.api.get_status());
+}
+
 /* ---------- 浏览器 ---------- */
 async function openBrowser(){
   const r = await pywebview.api.open_browser();
@@ -2607,6 +2921,24 @@ function modelLabel(p){
   if(!p) return '';
   return (p.llm_mode === 'local') ? (p.llm_model || '本地模型') : (p.model || '云端模型');
 }
+/* 档位徽标：厂商清单里带回来的档位优先，没有就按模型名推断 */
+const TIER_LABEL = {flagship:'旗舰', balanced:'均衡', economy:'轻量'};
+function tierOfModel(p){
+  if(!p) return 'balanced';
+  if(p.tier && TIER_LABEL[p.tier]) return p.tier;
+  const mid = ((p.llm_mode === 'local') ? (p.llm_model || '') : (p.model || '')).toLowerCase();
+  const toks = mid.split(/[^a-z0-9]+/).filter(Boolean);
+  const light = ['flash','lite','mini','nano','haiku','tiny','light','cheap','turbo'];
+  const flag = ['pro','ultra','max','opus','flagship','premium'];
+  if(light.some(t => toks.includes(t))) return 'economy';
+  if(flag.some(t => toks.includes(t))) return 'flagship';
+  if(toks.some(t => /^\d+(\.\d+)?b$/.test(t))) return 'economy';
+  return 'balanced';
+}
+function tierBadgeHtml(p){
+  const t = tierOfModel(p);
+  return '<span class="tier-badge tier-' + t + '">' + (TIER_LABEL[t] || '均衡') + '</span>';
+}
 async function renderModelMenu(){
   const box = document.getElementById('modelList');
   if(!box) return;
@@ -2620,7 +2952,7 @@ async function renderModelMenu(){
   box.innerHTML = profs.map((p, i) =>
     '<button class="pop-item" onclick="applyModel(' + i + ')">' +
     '<span class="pi-ico">' + (p.llm_mode === 'local' ? '🖥️' : '☁️') + '</span>' +
-    '<span class="pi-tx"><span class="pi-name">' + esc(p.name || ('模型' + (i + 1))) + '</span>' +
+    '<span class="pi-tx"><span class="pi-name">' + esc(p.name || ('模型' + (i + 1))) + ' ' + tierBadgeHtml(p) + '</span>' +
     '<span class="pi-desc">' + esc(modelLabel(p) + (modelLabel(p) === cur ? ' · 当前' : '')) + '</span></span></button>'
   ).join('');
 }
@@ -2640,7 +2972,8 @@ function refreshModelName(s){
   const name = s.llm_mode === 'local' ? (s.llm_model || '本地模型') : (s.model || '云端模型');
   window._activeModelLabel = name;
   const el = document.getElementById('msName');
-  if(el) el.textContent = name;
+  // 显示模型名 + 档位徽标：让用户随时知道自己在调哪个模型、这个档位贵不贵
+  if(el) el.innerHTML = esc(name) + ' ' + tierBadgeHtml(s);
   const ms = document.getElementById('modelSwitch');
   if(ms) ms.classList.toggle('dot-on', !!s.configured);
 }
@@ -2675,6 +3008,9 @@ document.getElementById('mask').addEventListener('click', e => {
 });
 document.getElementById('kbMask').addEventListener('click', e => {
   if(e.target === e.currentTarget) hideKB();
+});
+document.getElementById('apiMask').addEventListener('click', e => {
+  if(e.target === e.currentTarget) hideApiWiz();
 });
 
 /* ---------- 双击顶栏标题改名（#curTitle 动态刷新，用文档级委托） ---------- */
