@@ -2,10 +2,10 @@
 """端到端验证「云端 API 接入向导」的界面流程。
 
 用真实的 pywebview 窗口跑，桩掉后端接口，验证：
-  1. 三步向导的显隐切换（验证页 → 选模型页 → 手动填名页）
-  2. 验证成功后模型清单按档位分组渲染，旗舰排在最前
+  1. 保存即验证：点「保存」后系统去验证地址 + 密钥
+  2. 验证成功后弹模型清单并按档位分组渲染，旗舰排在最前
   3. 厂商不给清单时降级到第三步（手填模型名）
-  4. Key 无效时留在第一步并显示错误
+  4. Key 无效时弹窗关闭、表单报错，不进模型选择
   5. 选中模型后能落档，档位徽标出现在模型切换菜单里
 
 用法：python tools/api_wiz_test.py
@@ -42,31 +42,28 @@ TEST_JS = r"""
   };
 
   try{
-    /* ---------- 1. 打开向导 ---------- */
-    out.step1HiddenBefore = !vis('apiMask') ? 'mask-hidden-ok' : 'mask-should-be-hidden';
-    openApiWiz();
-    await sleep(120);
-    out.maskOpen = document.getElementById('apiMask').classList.contains('show');
-    out.step1 = vis('apiWizStep1');
-    out.step2 = vis('apiWizStep2');
-    out.step3 = vis('apiWizStep3');
+    /* ---------- 0. 打开设置，加载模型档案表单 ---------- */
+    await showSettings();
+    await sleep(250);
+    out.settingsOpen = document.getElementById('mask').classList.contains('show');
 
-    /* ---------- 2. Key 无效：留在第一步并报错 ---------- */
-    document.getElementById('api_base').value = 'https://bad.example/v1';
-    document.getElementById('api_key').value = 'sk-bad';
-    apiVerify();
-    await sleep(400);
-    out.badKeyStaysStep1 = vis('apiWizStep1');
-    out.badKeyMsg = (document.getElementById('apiStateBox').textContent || '').trim();
-    out.badKeyNotStep2 = !vis('apiWizStep2');
-    out.badKeyNotStep3 = !vis('apiWizStep3');
-
-    /* ---------- 3. 验证成功 -> 第二步，清单按档位分组 ---------- */
-    document.getElementById('api_base').value = 'https://ok.example/v1';
-    document.getElementById('api_key').value = 'sk-good';
-    apiVerify();
+    /* ---------- 1. Key 无效：保存后弹窗关闭、表单报错，不进模型选择 ---------- */
+    document.getElementById('s_base').value = 'https://bad.example/v1';
+    document.getElementById('s_key').value = 'sk-bad';
+    document.getElementById('s_name').value = '坏Key测试';
+    saveModel();
     await sleep(500);
+    out.badKeyMaskClosed = !document.getElementById('apiMask').classList.contains('show');
+    out.badKeyTip = (document.getElementById('saveTip').textContent || '').trim();
+
+    /* ---------- 2. 验证成功 -> 第二步，清单按档位分组 ---------- */
+    document.getElementById('s_base').value = 'https://ok.example/v1';
+    document.getElementById('s_key').value = 'sk-good';
+    document.getElementById('s_name').value = '厂商网关';
+    saveModel();
+    await sleep(600);
     out.afterOkStep2 = vis('apiWizStep2');
+    out.afterOkMaskOpen = document.getElementById('apiMask').classList.contains('show');
     const rows = document.querySelectorAll('#apiModelList .mlist-row');
     out.modelRowCount = rows.length;
     out.groupCount = document.querySelectorAll('#apiModelList .mlist-group').length;
@@ -77,7 +74,7 @@ TEST_JS = r"""
     out.selectedCount = document.querySelectorAll('#apiModelList .mlist-row.on').length;
     out.priceShown = (document.querySelector('#apiModelList .wiz-price')||{}).textContent || '';
 
-    /* ---------- 4. 选模型并落档 ---------- */
+    /* ---------- 3. 选模型并落档 ---------- */
     const economyRow = Array.from(rows).find(r => r.getAttribute('data-id') === 'acme-flash-lite');
     if(economyRow) apiPickModel(economyRow);
     await sleep(60);
@@ -88,20 +85,18 @@ TEST_JS = r"""
     out.savedProfiles = (window._profiles || []).map(p => ({name:p.name, model:p.model, tier:p.tier}));
     out.savedTip = (document.getElementById('saveTip').textContent || '').trim();
 
-    /* ---------- 5. 厂商不给清单 -> 第三步手填模型名 ---------- */
-    openApiWiz();
-    await sleep(150);
-    document.getElementById('api_base').value = 'https://gw.example/v1';
-    document.getElementById('api_key').value = 'sk-good';
-    apiVerify();
-    await sleep(500);
-    out.manualModeStep3 = vis('apiWizStep3');
-    out.manualStep1Hidden = !vis('apiWizStep1');
+    /* ---------- 4. 厂商不给清单 -> 第三步手填模型名 ---------- */
+    document.getElementById('s_base').value = 'https://gw.example/v1';
+    document.getElementById('s_key').value = 'sk-good';
+    document.getElementById('s_name').value = '本地推理 · lightweight';
+    saveModel();
+    await sleep(600);
+    out.manualStep3 = vis('apiWizStep3');
+    out.manualMaskOpen = document.getElementById('apiMask').classList.contains('show');
     out.manualHint = (document.querySelector('#apiWizStep3 .manual-hint')||{}).textContent || '';
 
     /* ---------- 6. 手填模型名后验证通过并落档 ---------- */
     document.getElementById('api_manual_model').value = 'qwen2.5-7b-instruct';
-    document.getElementById('api_manual_name').value = '本地推理 · 轻量';
     apiManualCheck();
     await sleep(600);
     out.manualMaskClosed = !document.getElementById('apiMask').classList.contains('show');

@@ -236,6 +236,12 @@ def chat_stream_events(base, model, api_key, messages, tools=None, timeout=None,
                 if delta.get("content"):
                     content.append(delta["content"])
                     yield ("text", delta["content"])
+                # 思考过程 / 深度思考（DeepSeek 等放在 reasoning_content，Qwen 等在 reasoning）
+                rb = delta.get("reasoning_content")
+                if rb is None:
+                    rb = delta.get("reasoning")
+                if rb:
+                    yield ("thinking", rb)
                 if delta.get("tool_calls"):
                     acc.feed(delta["tool_calls"])
                 if choice.get("finish_reason"):

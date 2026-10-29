@@ -84,6 +84,19 @@ class Api:
         # 定时提醒：后台线程到点推送到当前对话
         from .reminders import ReminderManager
         self.reminders = ReminderManager(cfg["project_root"], push=self._push)
+        # 文件改动监听：给「VS Code 风格编程面板」推实时文件内容
+        from .filewatch import FileWatcher
+        self._watch_roots = [cfg["project_root"]]
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        if os.path.isdir(desktop):
+            self._watch_roots.append(desktop)
+        self.watcher = FileWatcher(self._watch_roots, on_change=self._on_file_change)
+        self.watcher.start()
+        # 后台补齐档案里的真实上下文窗口（老档案没有 ctx，容量只能靠猜）
+        try:
+            threading.Thread(target=self._backfill_profile_ctx, daemon=True).start()
+        except Exception:
+            pass
 
     # ================= 会话管理 =================
 
@@ -193,6 +206,11 @@ class Api:
             "main_glass": str(self.cfg.get("main_glass", True)).lower()
                           not in ("off", "false", "0", "no", ""),
             "main_opacity": float(self.cfg.get("main_opacity", -1.0)),
+            # 玻璃按组件独立开关 + 磨砂按组件独立（默认全部组件都开玻璃与磨砂）
+            "glass_components": self._load_list("glass_components",
+                ["side", "main", "top", "input", "modal", "browser"]),
+            "frost_components": self._load_list("frost_components",
+                ["side", "main", "top", "input", "modal", "browser"]),
         }
 
     def _load_profiles(self):
@@ -204,6 +222,19 @@ class Api:
         except Exception:
             return []
 
+    def _load_list(self, key, default):
+        raw = self.cfg.get(key, default)
+        if isinstance(raw, list):
+            return raw
+        if isinstance(raw, str) and raw.strip():
+            try:
+                v = json.loads(raw)
+                if isinstance(v, list):
+                    return v
+            except Exception:
+                pass
+        return list(default)
+
     def save_settings(self, updates):
         allowed = {k: str(v) for k, v in (updates or {}).items()
                    if k in ("llm_mode", "base_url", "api_key", "model",
@@ -214,6 +245,15 @@ class Api:
                             "side_glass", "side_opacity",
                             "main_glass", "main_opacity")
                    and str(v).strip()}
+        # 玻璃 / 磨砂按组件独立开关（list[str] 需 JSON 序列化落盘）
+        for lst_key in ("glass_components", "frost_components"):
+            if isinstance(updates, dict) and lst_key in updates:
+                v = updates[lst_key]
+                if isinstance(v, (list, tuple)):
+                    try:
+                        save_settings(self.cfg, {lst_key: json.dumps(list(v), ensure_ascii=False)})
+                    except Exception:
+                        pass
         save_settings(self.cfg, allowed)
         # 多模型配置档案（list[dict]）单独落盘
         if isinstance(updates, dict) and "profiles" in updates:
@@ -267,10 +307,11 @@ class Api:
         except Exception as e:
             return {"ok": False, "message": "验证失败：%s" % e}
 
-    def api_add_profile(self, base_url, api_key, model, name=None, tier=None):
+    def api_add_profile(self, base_url, api_key, model, name=None, tier=None, ctx=None):
         """把验证通过的 API 存成模型档案并立即启用。
 
         同一 base_url + model 只存一条，重复添加是覆盖而非堆积。
+        ctx：厂商声明的上下文窗口（tok），0/None=未知。
         """
         base_url = (base_url or "").strip().rstrip("/")
         api_key = (api_key or "").strip()
@@ -282,6 +323,10 @@ class Api:
         hit = next((p for p in profs
                     if (p.get("base_url") or "").rstrip("/") == base_url
                     and (p.get("model") or "") == model), None)
+        if hit is None and name and str(name).strip():
+            # 同名档案 -> 覆盖更新：用于「更换模型」，保留档案名只换模型，不新建重复
+            hit = next((p for p in profs
+                        if (p.get("name") or "") == str(name).strip()), None)
         if hit is None:
             hit = {"llm_mode": "cloud", "base_url": base_url, "model": model}
             profs.append(hit)
@@ -298,6 +343,17 @@ class Api:
                 hit["tier"] = tier_of(model)["tier"]
             except Exception:
                 pass
+        # 厂商声明的上下文窗口：记进档案，容量计算与超限预检都靠它
+        try:
+            n = int(ctx or 0)
+        except (TypeError, ValueError):
+            n = 0
+        if n > 0:
+            hit["ctx"] = n
+        elif hit.get("ctx"):
+            pass          # 覆盖更新时保留原有的 ctx
+        else:
+            hit.pop("ctx", None)
         # 用户填了名字就用用户的；没填才自动生成「模型 @ 域名」
         if name and str(name).strip():
             hit["name"] = str(name).strip()
@@ -316,13 +372,16 @@ class Api:
 
     @staticmethod
     def _parse_manifest(path):
-        d = {"name": os.path.basename(path), "desc": "", "trigger": "", "version": ""}
+        d = {"name": os.path.basename(path), "desc": "", "trigger": "", "version": "",
+             "id": os.path.splitext(os.path.basename(path))[0]}
         try:
             with open(path, encoding="utf-8") as f:
                 for line in f:
                     s = line.strip()
                     if s.startswith("name:"):
                         d["name"] = s[5:].strip()
+                    elif s.startswith("id:"):
+                        d["id"] = s[3:].strip() or d["id"]
                     elif s.startswith("desc:"):
                         d["desc"] = s[5:].strip()
                     elif s.startswith("trigger:"):
@@ -376,18 +435,81 @@ class Api:
             "browser_text": bt,
             "tools": ", ".join(self.bus.enabled()) or "无",
             "ctx": self._actual_ctx(),
+            # 固定开销：system prompt + 事实摘要 + 工具 schema 的 token 估算。
+            # 前端用它做「实时估算」的地基，否则只数气泡文本会严重低估。
+            "ctx_base": self._ctx_base_tokens(),
         }
 
-    def _actual_ctx(self):
-        """当前模型上下文窗口（tok）：本地引擎实测 > 型号查表 > 默认。"""
+    def _ctx_base_tokens(self):
+        """每轮固定注入的上下文开销（tok）：system prompt + 事实 + 工具 schema。"""
         try:
-            st = self.engine.status()
-            n = int(st.get("ctx_size") or 0)
-            if n > 0:
-                return n
+            from . import econ
+            system = build_system_prompt(
+                self.bus.enabled(),
+                skills_dir=os.path.join(self.cfg["project_root"], "skills"))
+            facts = self.history.inject()
+            schemas = self.bus.openai_schemas()
+            n = econ.estimate_tokens(system) + econ.estimate_tokens(facts or "")
+            if schemas:
+                n += econ.estimate_tokens(json.dumps(schemas, ensure_ascii=False))
+            return int(n)
+        except Exception:
+            return 0
+
+    def _backfill_profile_ctx(self, force=False):
+        """给已有档案补上厂商声明的上下文窗口（context_length）。
+
+        老档案是在「厂商不给 context_length」之前加的，档案里没有 ctx 字段，
+        容量只能靠猜——这正是「显示 0% 却一发送就报超限」的根因之一。
+        这里按当前激活模型去厂商拉一次清单，把 ctx 写回档案。
+        force=True 时无视已有值强制重探（用户手动点「重新探测容量」）。
+        """
+        base = (self.cfg.get("base_url") or "").strip()
+        model = (self.cfg.get("model") or "").strip()
+        key = (self.cfg.get("api_key") or "").strip()
+        if not base or not model or not key:
+            return
+        profs = self._load_profiles()
+        hit = next((p for p in profs if str(p.get("model") or "") == model
+                    and str(p.get("base_url") or "").rstrip("/") == base.rstrip("/")), None)
+        if hit is None:
+            return
+        if int(hit.get("ctx") or 0) > 0 and not force:
+            return                      # 已有真实值，不动
+        try:
+            from .provider import check_endpoint
+            r = check_endpoint(base, key)
+            if not r.get("ok"):
+                return
+            ctx = 0
+            for m in r.get("models") or []:
+                if str(m.get("id")) == model:
+                    ctx = int(m.get("ctx") or 0)
+                    break
+            if ctx <= 0:
+                return
+            hit["ctx"] = ctx
+            self.cfg["profiles"] = profs
+            save_settings(self.cfg, {"profiles": json.dumps(profs, ensure_ascii=False)})
         except Exception:
             pass
+
+    def _actual_ctx(self):
+        """当前模型上下文窗口（tok）。
+
+        本地引擎模式：读引擎实测值；
+        云端模式：读档案里厂商给的 context_length / 型号查表 / 保守默认。
+        （本地引擎的窗口不能拿来给云端模型用，否则容量显示会小得离谱。）
+        """
         from .config import model_ctx_limit
+        if str(self.cfg.get("llm_mode", "cloud")).lower() == "local":
+            try:
+                st = self.engine.status()
+                n = int(st.get("ctx_size") or 0)
+                if n > 0:
+                    return n
+            except Exception:
+                pass
         return model_ctx_limit(self.cfg)
 
     # ================= 子 Agent（spawn） =================
@@ -422,8 +544,8 @@ class Api:
 
     # ================= 聊天（流式） =================
 
-    def send_message(self, text):
-        threading.Thread(target=self._chat_stream, args=(str(text),), daemon=True).start()
+    def send_message(self, text, attachments=None):
+        threading.Thread(target=self._chat_stream, args=(str(text), attachments), daemon=True).start()
         return {"ok": True}
 
     def _push(self, js, *args):
@@ -432,7 +554,30 @@ class Api:
         except Exception:
             pass
 
-    def _chat_stream(self, text):
+    def _on_file_change(self, path, content):
+        """文件改动 → 推给前端的编程面板（实时显示 AI 正在改的文件）。"""
+        if not path:
+            return
+        payload = {
+            "path": path,
+            "name": os.path.basename(path),
+            "dir": os.path.dirname(path),
+            "content": content or "",
+            "ts": time.time(),
+        }
+        self._push('window.__onFileChange(%s)', payload)
+
+    def ide_watch_add(self, path):
+        """把某个目录加入文件监听（AI 在别处工作时的实时改动也能看到）。"""
+        if not path:
+            return {"ok": False, "error": "缺少路径"}
+        try:
+            self.watcher.add_root(path)
+            return {"ok": True, "roots": self.watcher.roots_list()}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def _chat_stream(self, text, attachments=None):
         if not self.current_id or not os.path.exists(self._conv_path(self.current_id)):
             c = self.new_conversation()
             self._push('window.__onNewConv(%s)', c)
@@ -467,8 +612,40 @@ class Api:
             parts.append(facts)
         if mem_block:
             parts.append(mem_block)
+
+        # 附件：图片拼成多模态（OpenAI 兼容 image_url），文件只带元信息文本
+        atts = attachments or []
+        user_content = text or ""
+        if atts:
+            cparts = []
+            if text:
+                cparts.append({"type": "text", "text": text})
+            for a in atts:
+                if a.get("kind") == "image" and a.get("data"):
+                    cparts.append({"type": "image_url", "image_url": {"url": a["data"]}})
+                else:
+                    meta = a.get("name", "附件")
+                    if a.get("path"):
+                        meta += "（路径：%s）" % a["path"]
+                    cparts.append({"type": "text", "text": "[附件] %s" % meta})
+            if len(cparts) == 1 and cparts[0]["type"] == "text":
+                user_content = cparts[0]["text"]
+            else:
+                user_content = cparts
+
         messages = [{"role": "system", "content": "\n".join(parts)},
-                    {"role": "user", "content": text}]
+                    {"role": "user", "content": user_content}]
+
+        # 发请求前先给前端一份「上下文快照」：容量 + 本次实际占用估算。
+        # 否则前端只能数气泡文本，会显示 0%，然后上游才报「上下文超了」。
+        try:
+            from . import econ
+            cap = self._actual_ctx()
+            used = econ.messages_tokens2(messages)
+            self._push('window.__onCtx(%s)', {"capacity": cap, "used": used,
+                                              "pct": round(used * 100.0 / cap, 1) if cap else 0})
+        except Exception:
+            pass
 
         agent_on = bool(self.cfg.get("agent_enabled", True))
         full = []
@@ -497,6 +674,12 @@ class Api:
                     elif kind == "usage":
                         # token 用量（上下文用量条）
                         self._push('window.__onUsage(%s)', payload)
+                    elif kind == "model_call":
+                        # 可视化：本轮调用了哪个模型（CodeBuddy 风格轨迹）
+                        self._push('window.__onModelCall(%s)', payload)
+                    elif kind == "thinking":
+                        # 思考过程 / 深度思考：逐块透传，前端折叠展示
+                        self._push('window.__onThinking(%s)', payload)
                     elif kind == "done":
                         pass
                     elif kind == "error":
@@ -525,11 +708,17 @@ class Api:
                 return
             reply = "".join(full)
 
-        # 持久化 + TurnFact 压缩
-        d["messages"].append({"role": "user", "content": text})
+        # 持久化 + TurnFact 压缩（图片不落库，只记文件名，避免 dataURL 撑爆历史）
+        if isinstance(user_content, list):
+            note = text or ""
+            for a in atts:
+                note += ("\n[附件] " + a.get("name", "附件"))
+            d["messages"].append({"role": "user", "content": note})
+        else:
+            d["messages"].append({"role": "user", "content": text})
         d["messages"].append({"role": "assistant", "content": reply})
         if d.get("title") in ("", "新对话") and d["messages"]:
-            d["title"] = text[:20]
+            d["title"] = (text or (atts[0].get("name", "") if atts else ""))[:20]
         self.history.add_turn(text, reply, tool_names)
         d["facts"] = self.history.get_facts()
         self._persist(cid, d)
@@ -891,6 +1080,18 @@ class Api:
         facts = self.history.inject()
         return system + ("\n" + facts if facts else "")
 
+    def _ctx_source(self):
+        """当前容量是怎么来的：manual=手动指定 / vendor=厂商声明 / table=型号查表 / default=保守默认。"""
+        if int(self.cfg.get("llm_ctx", 0) or 0) > 0:
+            return "manual"
+        from .config import _profile_ctx, MODEL_CTX_LIMITS
+        if str(self.cfg.get("llm_mode", "cloud")).lower() != "local":
+            if _profile_ctx(self.cfg) > 0:
+                return "vendor"
+        if (self.cfg.get("model") or "") in MODEL_CTX_LIMITS:
+            return "table"
+        return "default"
+
     def _ctx_snapshot(self):
         """上下文调试快照：事实、消息条数、估算占用、容量。"""
         facts = self.history.get_facts()
@@ -907,6 +1108,7 @@ class Api:
             "title": (d or {}).get("title", "新对话"),
             "model": self.cfg.get("model", ""),
             "capacity": capacity,
+            "ctx_source": self._ctx_source(),
             "estimated": estimated,
             "ratio": round(estimated / capacity * 100, 1) if capacity else 0,
             "sys_chars": sys_chars,
@@ -985,6 +1187,9 @@ class Api:
                 n = 0
             self.cfg["llm_ctx"] = n
             self._write_config_key("llm_ctx", n)
+        elif op == "detect":
+            # 重新向厂商探测当前模型的真实上下文窗口
+            self._backfill_profile_ctx(force=True)
         return self._ctx_snapshot()
 
     def _compact_current(self):

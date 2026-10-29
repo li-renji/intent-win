@@ -30,6 +30,26 @@ def estimate_tokens(text):
     return int(cjk + other / 4) + 1
 
 
+def clamp_tokens(text, max_tokens, head_ratio=0.6):
+    """把一段文本压到不超过 max_tokens（粗估口径同 estimate_tokens）。
+
+    超长时保留头尾、中间打洞，并插一行说明被省略了多少——
+    论文/长文档整篇塞进上下文时，这是唯一能既保住信息又不炸容量的办法。
+    返回 (result, dropped_chars)。
+    """
+    s = str(text or "")
+    if max_tokens <= 0 or not s:
+        return s, 0
+    est = estimate_tokens(s)
+    if est <= max_tokens:
+        return s, 0
+    # 按估算比例线性收敛，留 5% 余量给标点/格式化差异
+    keep_ratio = max(0.05, (max_tokens / float(est)) * 0.95)
+    keep_chars = max(200, int(len(s) * keep_ratio))
+    res, cut = truncate_middle(s, keep_chars)
+    return res, max(0, len(s) - len(res))
+
+
 def messages_tokens(messages):
     """整条消息列表的 token 估算（含每条消息的固定开销）。"""
     total = 0
@@ -42,6 +62,38 @@ def messages_tokens(messages):
             total += estimate_tokens(fn.get("name") or "")
             total += estimate_tokens(fn.get("arguments") or "")
         total += 4                     # role 等结构开销
+    return total
+
+
+def content_tokens(content):
+    """支持多模态 content（str 或 [{type,text}] / [{type,image_url}]）。"""
+    if isinstance(content, str):
+        return estimate_tokens(content)
+    total = 0
+    for part in content or []:
+        if not isinstance(part, dict):
+            total += estimate_tokens(str(part))
+            continue
+        if part.get("type") == "text":
+            total += estimate_tokens(part.get("text") or "")
+        else:
+            # 图片按固定开销粗估（真实按 patch 数算，这里只做量级判断）
+            total += 800
+    return total
+
+
+def messages_tokens2(messages):
+    """messages_tokens 的多模态安全版：content 可能是 list。"""
+    total = 0
+    for m in messages or []:
+        if not isinstance(m, dict):
+            continue
+        total += content_tokens(m.get("content"))
+        for tc in (m.get("tool_calls") or []):
+            fn = tc.get("function") or {}
+            total += estimate_tokens(fn.get("name") or "")
+            total += estimate_tokens(fn.get("arguments") or "")
+        total += 4
     return total
 
 

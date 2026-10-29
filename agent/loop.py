@@ -25,16 +25,38 @@ import json
 import time
 
 from . import econ, intent, llm
-from .config import MODEL_CTX_LIMITS, model_ctx_limit
+from .config import model_ctx_limit
 
 # 模型正文里常见的"口头计划"（小模型幻觉：说自己要调工具但没调）
 _VERBAL = ("我要调用", "我将调用", "接下来调用", "现在调用", "让我调用",
            "正在调用", "我将使用", "我要使用", "调用工具")
 
 # 上游「上下文/容量超限」的典型特征（HTTP 400/413 最常见，小模型网关也用中文提示）
-_CTX_PATTERNS = ("context", "上下文", "容量", "过长", "too long", "too many",
-                 "maximum context", "maximum token", "token 上限", "超过最大",
-                 "超出容量", "超出上下文", "exceed")
+_CTX_PATTERNS = ("context", "上下文", "容量", "过长", "太长", "长度超",
+                 "too long", "too many", "maximum context", "maximum token",
+                 "token 上限", "超过最大", "超出容量", "超出上下文", "exceed",
+                 "context_length", "context length", "max_tokens", "输入长度",
+                 "请求体过大", "payload too large")
+
+# 限流/配额类错误：它们常含 "exceed"（如 "exceeds tpm/rpm limit"），
+# 极易被误判成「上下文超限」。必须优先排除，否则用户看到的提示完全是错的。
+_RATE_PATTERNS = ("tpm", "rpm", "rate limit", "rate_limit", "ratelimit",
+                  "quota", "too many requests", "限流", "频率", "配额",
+                  "余额", "并发", "429", "insufficient")
+# 明确的限流信号（先于 _CTX_PATTERNS 判定）
+_RATE_HARD = ("tpm", "rpm", "rate limit", "rate_limit", "ratelimit",
+              "too many requests", "限流", "频率", "配额", "余额", "并发",
+              "insufficient_quota", "insufficient")
+
+
+def kfmt_tokens(n):
+    """token 数缩写：1234 → 1.2K，123456 → 123K。"""
+    n = int(n or 0)
+    if n >= 1000000:
+        return "%.1fM" % (n / 1000000.0)
+    if n >= 1000:
+        return "%.1fK" % (n / 1000.0)
+    return str(n)
 
 
 def _args_of(call):
@@ -111,15 +133,47 @@ class AgentLoop:
 
     @staticmethod
     def _is_ctx_error(err):
-        """判断上游错误是否为「上下文/容量超限」——这类错误压缩历史就能救。"""
+        """判断上游错误是否为「上下文/容量超限」——这类错误压缩历史就能救。
+
+        注意：必须先排除限流/配额类错误。厂商的限流文案常含 "exceed"
+        （如 "inference exceeds tpm/rpm limit"），若不排除，
+        限流会被误报成「上下文已满」，用户会去查错方向。
+        """
+        code = 0
         if isinstance(err, dict):
             if err.get("kind") == "net":
                 return False        # 网络超时绝不是容量问题
+            code = int(err.get("code") or 0)
             msg = str(err.get("msg") or "")
         else:
             msg = str(err)
         low = msg.lower()
+        # 限流/配额优先排除
+        if code == 429 or any(p in low for p in _RATE_HARD):
+            return False
+        # 413 = 请求体过大，本质是装不下，属于容量问题
+        if code == 413:
+            return True
         return any(p in low for p in _CTX_PATTERNS)
+
+    @staticmethod
+    def _is_rate_error(err):
+        """判断是否为限流/配额错误（HTTP 429 或 TPM/RPM 超限）。
+
+        这类错误「压缩历史」救不了，只能等或换更小的请求。
+        """
+        code = 0
+        if isinstance(err, dict):
+            if err.get("kind") == "net":
+                return False
+            code = int(err.get("code") or 0)
+            msg = str(err.get("msg") or "")
+        else:
+            msg = str(err)
+        low = msg.lower()
+        if code == 429:
+            return True
+        return any(p in low for p in _RATE_HARD)
 
     @staticmethod
     def _compress_for_ctx(messages):
@@ -127,6 +181,9 @@ class AgentLoop:
 
         丢弃中间轮的 assistant/tool 消息（同时避免悬空的 tool_call_id），
         只把最近的工具结果折叠成一条摘要——小上下文模型只剩这条路。
+
+        关键：本轮用户消息若本身超长（整篇论文），必须一起裁，
+        否则压完历史照样超限，重试只是把同一个错误再犯一遍。
         """
         sys_msg, last_user, tool_results = None, None, []
         for m in messages:
@@ -152,6 +209,27 @@ class AgentLoop:
                         "content": "（上下文已满，早期过程已压缩）此前工具结果摘要：\n"
                                    + "\n---\n".join(reversed(parts))})
         if last_user:
+            # 本轮任务原文可能超长（论文/长文档）——按剩余预算裁剪它
+            c = last_user.get("content")
+            if isinstance(c, str):
+                capped, dropped = econ.clamp_tokens(c, 12000)
+                if dropped:
+                    last_user = dict(last_user)
+                    last_user["content"] = capped
+            elif isinstance(c, list):
+                txt_len = sum(len(p.get("text") or "") for p in c
+                              if isinstance(p, dict) and p.get("type") == "text")
+                if txt_len > 12000:
+                    keep = max(500, int(txt_len * 0.5))
+                    newparts = []
+                    for p in c:
+                        if isinstance(p, dict) and p.get("type") == "text":
+                            t, _ = econ.clamp_tokens(p.get("text") or "", keep)
+                            newparts.append({"type": "text", "text": t})
+                        else:
+                            newparts.append(p)
+                    last_user = dict(last_user)
+                    last_user["content"] = newparts
             out.append(last_user)
         return out
 
@@ -196,6 +274,69 @@ class AgentLoop:
                                    + "\n".join(lines[:40])})
         out.extend(tail)
         return out
+
+    # ---------- 发送前预算裁剪 ----------
+
+    @staticmethod
+    def _fit_to_budget(messages, budget):
+        """把消息列表压到预算内（tok）。
+
+        策略：优先裁剪「最长的用户消息」——论文/长文档通常就在这条里，
+        裁剪时保留首尾、压缩中间（econ.clamp_tokens），
+        这样既不丢关键信息（结论/摘要多在首尾），又能让请求发得出去。
+
+        返回 (新消息列表, 被裁掉的 token 数)。
+        """
+        if not messages or budget <= 0:
+            return list(messages), 0
+        total = econ.messages_tokens2(messages)
+        if total <= budget:
+            return list(messages), 0
+        over = total - budget
+        out = list(messages)
+        # 找最长的可裁剪消息（user 优先，system 不裁——那是行为约束）
+        best_i, best_len = -1, 0
+        for i, m in enumerate(out):
+            if m.get("role") != "user":
+                continue
+            c = m.get("content")
+            if isinstance(c, str):
+                ln = len(c)
+            elif isinstance(c, list):
+                ln = sum(len(p.get("text") or "") for p in c
+                         if isinstance(p, dict) and p.get("type") == "text")
+            else:
+                ln = 0
+            if ln > best_len:
+                best_i, best_len = i, ln
+        if best_i < 0:
+            return out, over
+        m = out[best_i]
+        c = m.get("content")
+        if isinstance(c, str):
+            new_text, dropped_chars = econ.clamp_tokens(c, budget)
+            if dropped_chars:
+                out[best_i] = dict(m)
+                out[best_i]["content"] = new_text
+                return out, max(1, over)
+        elif isinstance(c, list):
+            # 多模态：只裁 text 段，图片不动
+            total_txt = sum(len(p.get("text") or "") for p in c
+                            if isinstance(p, dict) and p.get("type") == "text")
+            if total_txt <= 0:
+                return out, over
+            keep = max(200, int(total_txt * (budget / float(total + 1))))
+            out[best_i] = dict(m)
+            newparts = []
+            for p in c:
+                if isinstance(p, dict) and p.get("type") == "text":
+                    t, _ = econ.clamp_tokens(p.get("text") or "", keep)
+                    newparts.append({"type": "text", "text": t})
+                else:
+                    newparts.append(p)
+            out[best_i]["content"] = newparts
+            return out, max(1, over)
+        return out, over
 
     # ---------- 入口 ----------
 
@@ -299,8 +440,13 @@ class AgentLoop:
         self._compacted = False
         self.clear_stop()   # 新一轮：清除上一轮的停止信号
         schemas = self.bus.openai_schemas()
-        # 当前模型的上下文容量（tok）：型号查表优先，其次按配置推断
-        ctx_limit = MODEL_CTX_LIMITS.get(model) or model_ctx_limit(self.cfg)
+        # 当前模型的上下文容量（tok）：档案里厂商给的 context_length > 型号查表 > 保守默认
+        ctx_limit = model_ctx_limit(self.cfg, model)
+        # 工具 schema 也占上下文（原生 tools 模式下整份 schema 都会随请求发出）
+        schema_tokens = econ.estimate_tokens(
+            json.dumps(schemas, ensure_ascii=False) if schemas else "")
+        # 给输出留出余量：输入最多占 85%，剩下的留给模型回复
+        input_budget = max(512, int(ctx_limit * 0.85) - schema_tokens)
         # 读取该端点的能力缓存：None=未知，True=支持原生 tools，False=不支持
         cache_key = (base, model)
         cached = self._native_ok_cache.get(cache_key)
@@ -318,6 +464,8 @@ class AgentLoop:
                 yield ("done", {"content": "".join(content_parts).strip(),
                                 "rounds": rnd - 1, "tools": [t["name"] for t in trace]})
                 return
+            # 可视化：每一轮先广播「调用了哪个模型」，前端据此画思考/调用轨迹
+            yield ("model_call", {"round": rnd, "model": model})
             # max_seconds<=0 表示不限时（长任务拆解不被强杀）；>0 才做软上限提醒
             if self.max_seconds > 0 and time.time() - t0 > self.max_seconds:
                 yield ("notice", "已运行 %ds，超过建议时长但继续执行（长任务不限时）。" % self.max_seconds)
@@ -326,11 +474,23 @@ class AgentLoop:
             # --- 上下文经济性：接近容量上限就主动压缩（对齐 pi 预算管理）---
             # 不是等上游报「超限」才救，而是用掉 80% 就先瘦身，任务不中断
             if (not self._compacted and self.compact_ratio > 0
-                    and econ.messages_tokens(messages) > ctx_limit * self.compact_ratio):
+                    and econ.messages_tokens2(messages) > ctx_limit * self.compact_ratio):
                 self._compacted = True
                 messages = self._compact_messages(messages, self.keep_tokens)
                 yield ("notice",
                        "上下文用量已较高，已自动压缩早期历史（任务主线与最近对话保留，不影响当前任务）。")
+
+            # --- 发送前预检：输入必须能装进上下文，否则先裁剪再发 ---
+            # 长论文/长文档整篇贴进来时，这里把超长片段压到预算内，
+            # 而不是甩给上游换一个「上下文超了」的 400。
+            if rnd == 1 or not self._ctx_retried:
+                new_msgs, dropped = self._fit_to_budget(messages, input_budget)
+                if dropped:
+                    messages = new_msgs
+                    yield ("notice",
+                           "本次输入约 %s tok，超出模型上下文预算，已自动精简长文段落"
+                           "（保留首尾、压缩中间，细节可让模型用文件工具再读原文）。"
+                           % kfmt_tokens(dropped))
 
             # --- 发起一次模型请求 ---
             use_native = native_ok and bool(schemas)
@@ -353,6 +513,9 @@ class AgentLoop:
                     content_parts.append(payload)
                     emitted_text = True
                     yield ("text", payload)
+                elif kind == "thinking":
+                    # 思考过程 / 深度思考：逐块透传给前端，折叠展示
+                    yield ("thinking", payload)
                 elif kind == "tool_call":
                     calls.append(payload)
                 elif kind == "error":
@@ -393,12 +556,30 @@ class AgentLoop:
                     if not self._ctx_retried:
                         self._ctx_retried = True
                         messages = self._compress_for_ctx(messages)
+                        # 上游的真实容量可能比我们的估计更小：
+                        # 再按一半预算裁一次，给重试留出余量
+                        messages, _ = self._fit_to_budget(messages, max(512, input_budget // 2))
                         # notice：非致命提示，调用方应继续等待后续内容
-                        yield ("notice", "模型上下文已满，已自动压缩历史后重试…")
+                        yield ("notice",
+                               "模型上下文已满（容量约 %s tok），已自动压缩历史并精简输入后重试…"
+                               % kfmt_tokens(ctx_limit))
                         continue
                     yield ("error",
-                           "模型上下文已满（%s）。已自动压缩重试仍超限：请点「新对话」重新开始、"
-                           "把任务拆小，或换上下文更大的模型。" % err_msg)
+                           "模型上下文已满（%s）。已自动压缩重试仍超限。当前模型容量约 %s tok："
+                           "请点「新对话」重新开始、把论文拆成几段分次发送，"
+                           "或换上下文更大的模型（也可在设置→上下文里手动指定 llm_ctx）。"
+                           % (err_msg, kfmt_tokens(ctx_limit)))
+                    return
+
+                # ①b 限流/配额不足 → 不是上下文问题！压缩历史救不了，
+                #     必须说清楚真因，否则用户会去查上下文、越查越困惑。
+                if self._is_rate_error(err):
+                    yield ("error",
+                           "触发限流或额度不足（%s）。这不是上下文超限——"
+                           "厂商按每分钟 token 量（TPM/RPM）或账户余额计费。"
+                           "当前请求约 %s tok，可以：稍等几十秒重试、"
+                           "把论文拆小分次发送、或到厂商控制台查看余额与限流档位。"
+                           % (err_msg, kfmt_tokens(ctx_limit)))
                     return
 
                 # ② 上游 4xx 拒绝 tools 参数 → 降级文本协议重试

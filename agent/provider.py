@@ -160,6 +160,30 @@ def tier_of(model_id, meta=None):
     return {"tier": tier, "label": TIER_LABEL[tier], "hint": TIER_HINT[tier], "note": note}
 
 
+def _model_ctx(rec):
+    """从厂商返回的模型元数据里抠出上下文窗口（tok）。
+
+    各家字段名不统一：context_length / max_context / context / max_input_tokens /
+    max_model_len 都见过；认不出就返回 0（上层用保守默认值）。
+    """
+    if not isinstance(rec, dict):
+        return 0
+    for k in ("context_length", "max_context", "context", "max_input_tokens",
+              "max_model_len", "context_window", "n_ctx"):
+        v = rec.get(k)
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, (int, float)) and v >= 1024:
+            return int(v)
+        if isinstance(v, str):
+            s = v.strip().lower()
+            if s.isdigit():
+                n = int(s)
+                if n >= 1024:
+                    return n
+    return 0
+
+
 def _extract_price(meta):
     """尽力从厂商返回里提取计价字段，归一成「每百万 token」的值。
 
@@ -420,6 +444,8 @@ def check_endpoint(base_url, api_key):
                         "price_in": pin,
                         "price_out": pout,
                         "owned_by": it.get("owned_by", ""),
+                        # 厂商声明的上下文窗口：存进档案后用于容量计算与超限预检
+                        "ctx": _model_ctx(it),
                     })
                 models.sort(key=lambda m: (m["tier"] != TIER_FLAGSHIP,
                                            m["tier"] != TIER_BALANCED, m["id"]))

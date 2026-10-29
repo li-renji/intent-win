@@ -1,0 +1,21 @@
+name: VS Code 风格编程界面
+id: vscode-ide
+version: 0.1
+desc: 启用 VS Code 风格的编程面板：AI 工作时点击聊天里的 AI 头像，就能看到它正在改哪些文件，文件内容随 AI 实时更新（左侧文件树 + 右侧代码视图 + 行号）。
+
+run: python "@ROOT@/tools/plugin_launch.py" ide @ACTION@
+params: action
+
+# 说明
+#
+# 用法：
+#   action=on      启用编程面板
+#   action=off     关闭编程面板
+#   action=status  查看当前状态
+#
+# 行为：
+#   · 插件未安装 → 聊天里的 AI 头像点击后不会弹出编程面板（功能整体不存在）
+#   · 插件已安装 → AI 开始改文件时，左侧文件树会实时出现/更新该文件，
+#     右侧代码视图带行号显示最新内容，改动即刻可见
+#
+# 依赖：AI 侧用「编辑文件 / 写文件」类工具落盘时才会推送实时改动事件。

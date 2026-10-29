@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """加载 .qdai 配置。键与奇点 ai_service 对齐（key=value，# 注释）。"""
+import json
 import os
 import sys
 
@@ -119,6 +120,9 @@ def load_config(path=None):
         "side_opacity": _floatv("side_opacity", -1.0),
         "main_glass": flag("main_glass", True),
         "main_opacity": _floatv("main_opacity", -1.0),
+        # 玻璃 / 磨砂按组件独立开关（JSON 字符串，app._load_list 解析成 list）
+        "glass_components": cfg.get("glass_components", ""),
+        "frost_components": cfg.get("frost_components", ""),
         "project_root": os.path.dirname(path),
     }
 
@@ -132,28 +136,101 @@ MODEL_CTX_LIMITS = {
     "mimo-v2.6-pro-ultraspeed": 1048576,
     "mimo-v2-pro": 1048576,
     "mimo-v2-flash": 1048576,
+    # 深度Seek 系（官方 API 常见 64K）
+    "deepseek-chat": 65536,
+    "deepseek-v3": 65536,
+    "deepseek-v3.1": 65536,
+    "deepseek-v3.2": 131072,
+    "deepseek-r1": 65536,
+    # 注：厂商自造型号（deepseek-v4-flash 等）各家窗口差异极大，
+    # 一律以厂商 /v1/models 返回的 context_length 为准，不在此处猜。
+    # OpenAI 系
+    "gpt-4o": 128000,
+    "gpt-4o-mini": 128000,
+    "gpt-4.1": 1047576,
+    "gpt-4.1-mini": 1047576,
+    "gpt-4-turbo": 128000,
+    "gpt-3.5-turbo": 16385,
+    "o1": 200000,
+    "o3": 200000,
+    # Anthropic / Google / Qwen
+    "claude-3-5-sonnet": 200000,
+    "claude-3-7-sonnet": 200000,
+    "claude-sonnet-4": 200000,
+    "gemini-1.5-pro": 2097152,
+    "gemini-2.0-flash": 1048576,
+    "qwen-max": 32768,
+    "qwen-plus": 131072,
+    "qwen-turbo": 1000000,
+    "glm-4-plus": 128000,
+    "glm-4-air": 128000,
     # 手机端本地 MNN 小模型（网关会裁剪 prompt，保守估计）
     "qwen2.5-1.5b-mnn": 4096,
     "minicpm-2b": 4096,
 }
-DEFAULT_CTX = 40960
+# 查不到型号时的兜底。故意取小值：宁可显示保守、提前压缩，
+# 也不要显示 40K 却在实际 32K 的模型上被上游拒掉。
+DEFAULT_CTX = 32768
 
 
-def model_ctx_limit(cfg):
-    """当前模型的上下文容量（tok）：llm_ctx 覆盖 > 型号查表 > 本地引擎配置 > 默认。"""
+def _profile_ctx(cfg, model=None):
+    """当前激活模型档案里记录的上下文容量（厂商在 /v1/models 里给的 context_length）。
+
+    档案是 list[dict] 的 JSON 字符串，按 base_url + model 匹配当前激活项。
+    """
+    raw = cfg.get("profiles")
+    profs = []
+    if isinstance(raw, list):
+        profs = raw
+    elif isinstance(raw, str) and raw.strip():
+        try:
+            v = json.loads(raw)
+            if isinstance(v, list):
+                profs = v
+        except Exception:
+            profs = []
+    base = str(cfg.get("base_url") or "").rstrip("/")
+    model = str(model or cfg.get("model") or "")
+    for p in profs:
+        if not isinstance(p, dict):
+            continue
+        if str(p.get("model") or "") != model:
+            continue
+        pb = str(p.get("base_url") or "").rstrip("/")
+        if base and pb and pb != base:
+            continue
+        try:
+            n = int(p.get("ctx") or 0)
+        except (TypeError, ValueError):
+            n = 0
+        if n > 0:
+            return n
+    return 0
+
+
+def model_ctx_limit(cfg, model=None):
+    """当前模型的上下文容量（tok）。
+
+    优先级：llm_ctx 手动指定 > 模型档案里厂商给的 context_length
+            > 型号查表 > 本地引擎配置 > 保守默认值。
+    """
     try:
         n = int(cfg.get("llm_ctx", 0) or 0)
     except (TypeError, ValueError):
         n = 0
     if n > 0:
         return n
+    model = model or cfg.get("model") or ""
     if str(cfg.get("llm_mode", "cloud")).lower() == "local":
-        m = cfg.get("llm_model") or ""
+        m = cfg.get("llm_model") or model
         if m in MODEL_CTX_LIMITS:
             return MODEL_CTX_LIMITS[m]
         n = int(cfg.get("local_engine_ctx", 0) or 0)
         return n if n > 0 else DEFAULT_CTX
-    return MODEL_CTX_LIMITS.get(cfg.get("model") or "", DEFAULT_CTX)
+    n = _profile_ctx(cfg, model)
+    if n > 0:
+        return n
+    return MODEL_CTX_LIMITS.get(model or "", DEFAULT_CTX)
 
 
 def active_llm(cfg):
@@ -168,7 +245,9 @@ EDITABLE_KEYS = ("llm_mode", "base_url", "api_key", "model",
                  "llm_base_url", "llm_model", "profiles", "theme",
                  "workbench_enabled", "glass_enabled", "glass_refract",
                  "bg_visibility", "glass_blur", "bg_pos_x", "bg_pos_y",
-                 "side_glass", "side_opacity", "main_glass", "main_opacity")
+                 "side_glass", "side_opacity", "main_glass", "main_opacity",
+                 # 玻璃 / 磨砂按组件独立开关（JSON 字符串，形如 ["top","input"]）
+                 "glass_components", "frost_components")
 
 
 def save_settings(cfg, updates):

@@ -207,7 +207,7 @@
   html[data-glass="on"] .bg::after{background:rgba(var(--bg-tint-rgb), var(--bg-tint-a-on, .52))}
 
   /* ---------- 背景预览：在设置里实时还原「背景图 + 可见度 + 玻璃磨砂」的真实观感 ---------- */
-  .bgprev{position:relative;height:172px;border-radius:var(--r-md);overflow:hidden;
+  .bgprev{position:relative;height:200px;border-radius:var(--r-md);overflow:hidden;
     border:1px solid var(--border);background:#0b0e14;margin:2px 0 14px;cursor:crosshair}
   .bgprev-img{position:absolute;inset:0;background-size:cover;
     background-position:var(--bg-pos,50% 50%);background-repeat:no-repeat}
@@ -227,6 +227,28 @@
   .bgprev-tag{position:absolute;top:10px;left:12px;font-size:11px;line-height:1;
     color:#fff;background:rgba(0,0,0,.42);padding:5px 9px;border-radius:99px;
     backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  /* 预览里的「对话框 / 浏览器」样卡：实时反映玻璃磨砂 + 可见度 + 背景 */
+  .bgprev-chat,.bgprev-browser{position:absolute;border-radius:12px;overflow:hidden;
+    background:var(--g-tint);border:1px solid var(--g-edge-soft);
+    box-shadow:inset 0 1px 0 var(--g-edge),var(--g-shadow);
+    -webkit-backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
+    backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat))}
+  .bgprev-chat{left:14px;top:14px;width:53%;height:58%;padding:10px;display:flex;flex-direction:column;gap:6px;justify-content:flex-end}
+  .bgprev-browser{right:14px;bottom:14px;width:44%;height:42%;padding:10px;display:flex;flex-direction:column;gap:7px;justify-content:center}
+  .bgprev-chat .b-row{height:8px;border-radius:6px;background:rgba(255,255,255,.55)}
+  .bgprev-chat .b-row.s{width:62%}.bgprev-chat .b-row.m{width:88%}.bgprev-chat .b-row.l{width:46%}
+  .bgprev-browser .b-bar{height:11px;border-radius:99px;background:rgba(255,255,255,.62)}
+  .bgprev-browser .b-line{height:6px;border-radius:6px;background:rgba(255,255,255,.36)}
+  .b-cap{position:absolute;top:6px;left:10px;font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--txt);opacity:.82}
+  html[data-glass="off"] .bgprev-chat,html[data-glass="off"] .bgprev-browser{
+    -webkit-backdrop-filter:none;backdrop-filter:none;background:var(--bg-panel)}
+  /* 吸顶：滚动设置时长留预览在视线内，玻璃 / 可见度 / 焦点都紧挨着它 */
+  .bgprev{position:sticky;top:2px;z-index:3}
+  /* 玻璃关闭 → 区域浓度滑块 / 区域玻璃开关 禁用（强制纯色） */
+  input[type=range].dim{opacity:.4}
+  .sw.dim{pointer-events:none;opacity:.4}
+  .pop-loading{font-size:12px;color:var(--sub);padding:14px 10px;text-align:center}
+  .save-tip.err{color:var(--danger)}
 
   /* ===== 玻璃材质：① 模糊 → ② 增色 → ③ 叠加白色 → ④ 亮边 → ⑤ 折射 ===== */
   .glass{position:relative;
@@ -252,9 +274,8 @@
   .glass-sheet{position:fixed;inset:0;z-index:0;pointer-events:none;
     background:transparent;   /* 透出下方 .bg 背景图（不再用整窗黑/白玻璃盖死） */
     box-shadow:
-      inset 0 0 0 1px rgba(0,0,0,.45),             /* 外暗线，衬托亮边 */
-      inset 0 0 0 2px var(--g-edge),               /* 亮边 = 窗口玻璃边框 */
-      inset 0 1px 0 rgba(255,255,255,.65),
+      inset 0 0 0 1px rgba(0,0,0,.5),              /* 外暗线，定义窗口边 */
+      inset 0 0 0 1px var(--g-edge-soft),          /* 极淡亮边，替代刺眼白环 */
       inset 0 -1.5px 0 var(--g-edge-bottom);
   }
   /* ② 增色：环境色光晕（压低透明度，避免盖掉背景图） */
@@ -455,6 +476,56 @@
   .book.open .pages{display:block}
   .book .pages{display:block}
   .book.collapsed .pages{display:none}
+  /* 思考过程 / 深度思考（CodeBuddy 风格折叠块） */
+  .think{margin:0 0 16px 49px;max-width:74%;border:1px solid var(--border);border-radius:var(--r-md);
+         background:linear-gradient(180deg,var(--glass-2),var(--bg-panel));overflow:hidden;transition:.2s}
+  .think-h{display:flex;align-items:center;gap:7px;padding:8px 12px;cursor:pointer;font-size:12px;
+           color:var(--sub);user-select:none;font-weight:600}
+  .think-h .th-ico{font-size:13px}
+  .think-h .th-tip{margin-left:2px;font-weight:400;color:var(--ter);font-size:11px}
+  .think-h .th-toggle{margin-left:auto;color:var(--ter);transition:transform .2s}
+  .think:not(.open) .th-toggle{transform:rotate(-90deg)}
+  .think-body{display:none;padding:0 12px 10px;font-size:12.5px;line-height:1.7;color:var(--sub);
+              white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto}
+  .think.open .think-body{display:block}
+  .think.open .th-tip::after{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;
+            background:var(--me1);margin-left:6px;animation:blink 1s infinite}
+  @keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+  .page.model .ph{background:rgba(124,131,255,.10)}
+
+  /* ---- VS Code 风格编程面板（插件 vscode-ide） ---- */
+  .ide-panel{position:absolute;top:0;right:0;bottom:0;width:min(52%,720px);z-index:20;
+    background:var(--bg-panel);border-left:1px solid var(--border);
+    box-shadow:-18px 0 46px rgba(0,0,0,.34);transform:translateX(102%);
+    transition:transform .28s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column}
+  .ide-panel.show{transform:translateX(0)}
+  .ide-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);
+    background:var(--hover-1);flex-shrink:0}
+  .ide-title{font-size:13px;font-weight:700;color:var(--txt)}
+  .ide-sub{font-size:11.5px;color:var(--ter);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ide-x{border:0;background:var(--glass-1);width:26px;height:26px;border-radius:8px;color:var(--sub);
+    cursor:pointer;font-size:13px}
+  .ide-x:hover{background:rgba(248,113,113,.16);color:var(--danger)}
+  .ide-body{flex:1;display:flex;min-height:0}
+  .ide-tree{width:180px;flex-shrink:0;border-right:1px solid var(--border);overflow:auto;background:var(--hover-1)}
+  .ide-tree-h{font-size:11px;color:var(--ter);padding:9px 12px;text-transform:uppercase;letter-spacing:.6px}
+  .ide-tree-list{padding:0 6px 10px}
+  .ide-file{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border:0;background:none;
+    color:var(--sub);font-size:12px;padding:5px 8px;border-radius:7px;cursor:pointer;transition:.14s}
+  .ide-file:hover{background:var(--hover-3);color:var(--txt)}
+  .ide-file.on{background:var(--me-grad);color:#0a0c10;font-weight:600}
+  .ide-file .fi{font-size:11px;opacity:.8}
+  .ide-file .fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ide-empty{font-size:11.5px;color:var(--ter);padding:10px 12px;line-height:1.6}
+  .ide-editor{flex:1;min-width:0;display:flex;flex-direction:column}
+  .ide-tab{padding:8px 14px;font-size:12px;color:var(--sub);border-bottom:1px solid var(--border);
+    background:var(--hover-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
+  .ide-code{flex:1;overflow:auto;padding:10px 0;font:12px/1.65 ui-monospace,Menlo,Consolas,"Cascadia Mono",monospace}
+  .ide-line{display:flex;gap:12px;padding:0 14px;white-space:pre-wrap;word-break:break-word}
+  .ide-line:hover{background:var(--hover-2)}
+  .ide-ln{color:var(--ter);opacity:.5;text-align:right;min-width:34px;user-select:none;flex-shrink:0;
+    font-variant-numeric:tabular-nums}
+  .ide-lc{color:var(--txt);flex:1;min-width:0}
 
   /* ---- 非致命提示 ---- */
   .notice{margin:0 0 14px 49px;font-size:11.5px;color:var(--warn);
@@ -490,6 +561,14 @@
              border:1px solid rgba(248,113,113,.5);font-size:13px;padding:0 14px}
   /* 底部行：上下文环 + 提示 + 模型切换（与输入框一体，不再独立成条） */
   .ib-foot{display:flex;align-items:center;gap:12px;padding:2px 4px 0}
+  .att-row{display:none;flex-wrap:wrap;gap:6px;padding:6px 8px 0;order:-1}
+  .att-chip{display:inline-flex;align-items:center;gap:4px;max-width:200px;padding:3px 6px 3px 8px;
+            border-radius:8px;background:var(--glass-2);border:1px solid var(--border);
+            font-size:11px;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .att-chip.img{background:rgba(124,131,255,.14);border-color:rgba(124,131,255,.4)}
+  .att-x{border:0;background:none;color:var(--ter);cursor:pointer;font-size:10px;line-height:1;
+         padding:2px;border-radius:5px}
+  .att-x:hover{background:rgba(255,90,90,.18);color:#ff6b6b}
   .gauge{position:relative;width:30px;height:30px;flex-shrink:0;background:none;border:0;
          cursor:default;padding:0}
   .gauge svg{display:block}
@@ -513,6 +592,8 @@
        background:var(--modal-bg);border:1px solid var(--border);border-radius:16px;
        padding:8px;box-shadow:0 18px 50px rgba(0,0,0,.4);display:none;z-index:40}
   .pop.show{display:block;animation:pop .18s cubic-bezier(.2,.8,.2,1)}
+  /* 模型切换菜单：右对齐，紧贴右下角的切换按键（否则会跑到左侧去） */
+  #modelMenu{right:0;left:auto;transform-origin:bottom right}
   .pop-head{font-size:11px;color:var(--ter);padding:6px 8px 4px;font-weight:600;letter-spacing:.4px}
   .pop-sep{height:1px;background:var(--border);margin:6px 4px}
   .pop-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;
@@ -529,6 +610,8 @@
   .mask{position:fixed;inset:0;background:rgba(6,8,12,.62);backdrop-filter:blur(8px);
         display:none;align-items:center;justify-content:center;z-index:50}
   .mask.show{display:flex;animation:fade .2s ease}
+  /* 模型选择 / 手填弹窗要盖在「设置」弹窗之上（同 z-index 时后者靠后反而压住前者） */
+  #apiMask{z-index:60}
   @keyframes fade{from{opacity:0}to{opacity:1}}
   /* 弹窗打开时：全局关闭玻璃模糊，消除「弹窗自身 + 背后面板」双层 backdrop-filter 嵌套卡顿。
      仅关闭模糊，保留半透明底色与阴影，观感不变、开销归零。 */
@@ -555,6 +638,9 @@
        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%2393a0b4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
        background-repeat:no-repeat;background-position:right 12px center}
   .field input:focus,.field select:focus{border-color:var(--me1);box-shadow:0 0 0 3px rgba(124,131,255,.15)}
+  .cur-model{display:flex;align-items:center;gap:8px;min-height:38px;padding:8px 12px;
+    background:var(--bg-input);border:1px solid var(--border);border-radius:11px;
+    font-size:13px;font-weight:600;color:var(--txt)}
   .row2{display:flex;gap:12px}
   .row2 .field{flex:1}
   .modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;align-items:center}
@@ -578,6 +664,16 @@
   .set-nav .nav-btn.active{background:var(--me-grad);color:#0a0c10;font-weight:600;
            box-shadow:0 4px 14px rgba(124,131,255,.35)}
   .set-body{flex:1;padding:24px 26px 20px;overflow-y:auto;position:relative;scroll-behavior:smooth;overscroll-behavior:contain}
+  /* 外观预览：设置弹窗底部的小窗（常驻，不随内容滚走） */
+  .modal.settings{position:relative}
+  .theme-preview-float{position:absolute;left:172px;right:0;bottom:0;z-index:4;
+    padding:10px 26px 14px;pointer-events:auto;
+    background:linear-gradient(180deg,rgba(0,0,0,0),var(--bg-panel) 30%)}
+  .tpf-head{display:flex;align-items:baseline;gap:10px;margin-bottom:8px;
+    font-size:12.5px;font-weight:700;color:var(--txt)}
+  .tpf-tip{font-size:11px;font-weight:400;color:var(--ter)}
+  .theme-preview-float .bgprev{position:relative;top:auto;height:168px}
+  #mask .set-body{padding-bottom:214px}
   .set-pane h4{font-size:16px;margin-bottom:6px;font-weight:700}
   .set-pane .desc{font-size:12.5px;color:var(--sub);margin-bottom:16px;line-height:1.65}
   .set-close{position:absolute;top:14px;right:16px;border:0;background:var(--glass-1);
@@ -832,6 +928,14 @@
     gap:var(--gap-in);padding:6px 0}
   .sw-row+.sw-row{margin-top:4px}          /* 组内紧靠（内容间距 16） */
 
+  /* 组件选择芯片（玻璃 / 磨砂按组件独立开启） */
+  .chip-row{display:flex;flex-wrap:wrap;gap:7px}
+  .comp-chip{border:1px solid var(--border);background:var(--glass-1);color:var(--sub);
+    border-radius:999px;padding:5px 13px;font-size:12px;cursor:pointer;transition:.16s;user-select:none}
+  .comp-chip:hover{border-color:var(--me1);color:var(--txt)}
+  .comp-chip.on{background:var(--me-grad);color:#0a0c10;border-color:transparent;font-weight:600;
+    box-shadow:0 4px 14px rgba(124,131,255,.3)}
+
   /* ---------- 顶栏按钮：柔和多层阴影代替硬边框 ---------- */
   .tb-act{border:0;background:var(--glass-2);border-radius:var(--r-sm);
     box-shadow:var(--sh-1)}
@@ -951,9 +1055,12 @@
       <button class="btn wb" id="wbBtn" onclick="openWorkbench()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         工作台</button>
-      <button class="btn" onclick="showKB()">
+      <button class="btn" onclick="openMemBook()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4a2 2 0 0 1 2-2h5v18H7a2 2 0 0 1-2-2zM19 4a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 0 2-2z"/></svg>
-        记忆·知识库</button>
+        记忆书</button>
+      <button class="btn" onclick="showKB()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M8 3v3M16 3v3M4 10h16"/></svg>
+        知识库</button>
       <button class="btn" onclick="showMarket()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h18M4.5 9l1.2 11h12.6l1.2-11"/><path d="M8.5 9V6.5a3.5 3.5 0 0 1 7 0V9"/></svg>
         市场</button>
@@ -983,6 +1090,25 @@
       </div>
     </div>
     <div class="msgs" id="msgs"></div>
+
+    <!-- VS Code 风格编程面板（插件「vscode-ide」装上后才可用；点击 AI 头像打开） -->
+    <aside class="ide-panel" id="idePanel" aria-hidden="true">
+      <div class="ide-head">
+        <span class="ide-title">编程界面</span>
+        <span class="ide-sub" id="ideSub">等待 AI 改动文件…</span>
+        <button class="ide-x" onclick="toggleIde(false)" title="关闭">✕</button>
+      </div>
+      <div class="ide-body">
+        <div class="ide-tree">
+          <div class="ide-tree-h">改动文件</div>
+          <div id="ideTree" class="ide-tree-list"><div class="ide-empty">暂无改动</div></div>
+        </div>
+        <div class="ide-editor">
+          <div class="ide-tab" id="ideTab">未选择文件</div>
+          <div class="ide-code" id="ideCode"></div>
+        </div>
+      </div>
+    </aside>
     <div class="input-bar">
       <div class="input-box glass" id="inputBox">
         <div class="ib-top">
@@ -1111,40 +1237,19 @@
     </div>
   </div>
 
-  <!-- 云端 API 接入向导：验证 Key → 选模型 → 落档 -->
+  <!-- 云端 API 接入：保存即验证 → 弹厂商模型 / 厂商无清单时手填（由模型档案「保存」触发） -->
   <div class="mask" id="apiMask">
     <div class="modal settings glass" style="width:min(620px,94vw);height:auto;max-height:88vh">
       <button class="set-close" title="关闭" onclick="hideApiWiz()">✕</button>
       <div class="set-body">
-        <!-- 第一步：填地址与 Key，验证 -->
-        <div id="apiWizStep1">
-          <h4>添加云端 API</h4>
-          <div class="desc">填入厂商给的接口地址和 API Key，先验证能不能用，再从该厂商提供的模型里挑一个。验证只读取模型清单，<b>不消耗额度</b>。</div>
-          <div class="field">
-            <label>接口地址 Base URL</label>
-            <input type="text" id="api_base" placeholder="https://api.example.com/v1">
-          </div>
-          <div class="field">
-            <label>API Key</label>
-            <input type="password" id="api_key" placeholder="sk-...">
-          </div>
-          <div class="field">
-            <label>档案名称（可留空，自动生成「模型 @ 域名」）</label>
-            <input type="text" id="api_name" placeholder="如：公司网关 · 旗舰">
-          </div>
-          <div id="apiStateBox"></div>
-          <div class="modal-foot">
-            <button class="m-btn" onclick="hideApiWiz()">取消</button>
-            <button class="m-btn primary" id="apiVerifyBtn" onclick="apiVerify()">验证并获取模型</button>
-          </div>
-        </div>
         <!-- 第二步：从厂商清单里选一个模型 -->
-        <div id="apiWizStep2" style="display:none">
+        <div id="apiWizStep2">
           <h4>选择模型</h4>
-          <div class="desc" id="apiWizStep2Desc">该接口可用。下面是厂商提供的全部模型，已按档位排序——<b>旗舰</b>最强最贵，<b>均衡</b>适合日常，<b>轻量</b>最省钱。</div>
+          <div class="desc" id="apiWizStep2Desc">正在验证接口可用性…</div>
           <div class="mlist" id="apiModelList"></div>
+          <div id="apiModelState"></div>
           <div class="modal-foot">
-            <button class="m-btn" onclick="apiBackTo1()">上一步</button>
+            <button class="m-btn" onclick="hideApiWiz()">返回修改</button>
             <button class="m-btn primary" id="apiUseBtn" onclick="apiUseModel()">使用选中的模型</button>
           </div>
         </div>
@@ -1157,13 +1262,9 @@
             <label>模型名</label>
             <input type="text" id="api_manual_model" placeholder="如 qwen2.5-7b-instruct / gpt-4o-mini">
           </div>
-          <div class="field">
-            <label>档案名称（可留空，自动生成）</label>
-            <input type="text" id="api_manual_name" placeholder="如：本地推理 · 轻量">
-          </div>
           <div id="apiManualState"></div>
           <div class="modal-foot">
-            <button class="m-btn" onclick="apiBackTo1()">上一步</button>
+            <button class="m-btn" onclick="hideApiWiz()">返回修改</button>
             <button class="m-btn primary" id="apiManualBtn" onclick="apiManualCheck()">验证并添加</button>
           </div>
         </div>
@@ -1233,15 +1334,7 @@
         <!-- 模型档案 -->
         <div id="pane-model" class="set-pane">
           <h4>模型档案</h4>
-          <div class="desc">选一个已存档案即可秒切 API；最下面「新建API」可新增一套空白配置。同一 API 只会存一条，不会重复。</div>
-          <div class="row2" style="margin-bottom:16px">
-            <div class="field" style="flex:1;margin-bottom:0">
-              <button class="m-btn primary" style="width:100%" onclick="openApiWiz()">＋ 添加云端 API（自动获取模型列表）</button>
-            </div>
-            <div class="field" style="flex:1;margin-bottom:0">
-              <button class="m-btn" style="width:100%" onclick="showSettings('model')">手动填写</button>
-            </div>
-          </div>
+          <div class="desc">先选一个已存档案可<b>秒切</b>当前接口；要新增一套配置，在下拉里选「＋ 新建API…」填好下面几项，点<b>保存</b>——系统会立刻去验证地址和密钥能不能用：能用就弹出厂商模型让你挑；厂商不提供清单时，再弹窗让你手填模型名（会发一次极小请求确认可用）。同一套接口只存一条，不会重复。</div>
           <div class="field">
             <label>模型档案（默认显示当前使用）</label>
             <select id="s_profiles" onchange="onProfileChange()"></select>
@@ -1257,17 +1350,14 @@
               <option value="local">本地模型</option>
             </select>
           </div>
+          <input type="hidden" id="s_model">
           <div id="cloudFields">
             <div class="field">
               <label>接口地址 Base URL</label>
               <input type="text" id="s_base" placeholder="https://api.example.com/v1">
             </div>
             <div class="field">
-              <label>模型名称</label>
-              <input type="text" id="s_model" placeholder="model-name">
-            </div>
-            <div class="field">
-              <label>API Key</label>
+              <label>App（API Key）</label>
               <input type="password" id="s_key" placeholder="sk-...">
             </div>
           </div>
@@ -1282,6 +1372,11 @@
                 <input type="text" id="s_lmodel" placeholder="qwen3-14b">
               </div>
             </div>
+          </div>
+          <div class="field" id="curModelBox" style="display:none;margin-top:var(--gap-out)">
+            <label>当前调用模型</label>
+            <div class="cur-model" id="curModelShow">—</div>
+            <button class="m-btn" id="changeModelBtn" onclick="changeCurrentModel()" style="margin-top:8px">更换模型（保留此档案）</button>
           </div>
           <div class="modal-foot">
             <span class="save-tip" id="saveTip">✓ 已保存并生效</span>
@@ -1356,6 +1451,7 @@
             </div>
           </div>
           <div class="modal-foot">
+            <button class="m-btn" onclick="ctxDetect()">重新探测容量</button>
             <button class="m-btn" onclick="ctxCompact()">压缩历史</button>
             <button class="m-btn" onclick="ctxResetFacts()">清空事实</button>
             <button class="m-btn primary" onclick="refreshCtx()">刷新</button>
@@ -1364,7 +1460,9 @@
         <!-- 个性化 -->
         <div id="pane-theme" class="set-pane" style="display:none">
           <h4>个性化</h4>
-          <div class="desc">选择界面的外观主题。设置会自动保存，下次打开依然生效。</div>
+          <div class="desc">先挑主题，再调材质和背景。下面的<b>实时外观预览</b>会同步还原「背景图 + 可见度 + 玻璃磨砂 + 对话框 / 浏览器」的真实观感；玻璃、可见度、画面焦点这些要边看边调的项都紧挨着它，滚动时也一直吸顶可见。</div>
+
+          <!-- 1. 外观主题 -->
           <div class="field">
             <label>外观主题</label>
             <div class="theme-opts">
@@ -1382,9 +1480,17 @@
               </button>
             </div>
           </div>
+
+          <!-- 2. 实时外观预览 → 已改为设置弹窗底部的小窗（见弹窗最下方） -->
+          <div class="field" style="margin-top:var(--gap-out)">
+            <label>实时外观预览</label>
+            <div class="desc" style="margin:-2px 0 8px">预览小窗已挪到<b>本设置弹窗的最底部</b>，切到任何面板都一直可见。底图是背景图，半透明卡片分别是<b>对话框</b>和<b>浏览器搜索</b>；调玻璃 / 可见度 / 画面焦点时会立刻跟着变，<b>点击预览任意位置</b>可设定画面焦点。</div>
+          </div>
+
+          <!-- 3. 玻璃材质 -->
           <div class="field" style="margin-top:var(--gap-out)">
             <label>玻璃材质</label>
-            <div class="desc" style="margin:-2px 0 10px">侧栏 / 顶栏 / 输入框 / 弹窗的玻璃质感：模糊 → 增色 → 叠白 → 亮边 → 折射。</div>
+            <div class="desc" style="margin:-2px 0 10px">侧栏 / 顶栏 / 输入框 / 弹窗的玻璃质感：模糊 → 增色 → 叠白 → 亮边 → 折射。关闭后整窗及对话框、浏览器都变纯色实底，下方的「浓度」滑块也会自动锁定为 100%。</div>
             <div class="sw-group">
               <div class="sw-row">
                 <label>启用玻璃效果</label>
@@ -1399,6 +1505,16 @@
             </div>
           </div>
           <div class="field" style="margin-top:14px">
+            <label>玻璃作用组件</label>
+            <div class="desc" style="margin:-2px 0 8px">勾选哪些组件启用玻璃质感（顶栏 / 输入框 / 弹窗 / 浏览器预览）。任务栏与聊天区在下方「区域浓度」里单独调。点一下即生效、自动保存。</div>
+            <div class="chip-row" id="glassCompChips"></div>
+          </div>
+          <div class="field" style="margin-top:14px">
+            <label>磨砂作用组件</label>
+            <div class="desc" style="margin:-2px 0 8px">磨砂（模糊）作用于已开启玻璃的组件；取消勾选则该组件只做增色、不模糊，更通透。</div>
+            <div class="chip-row" id="frostCompChips"></div>
+          </div>
+          <div class="field" style="margin-top:14px">
             <label>玻璃磨砂度</label>
             <div class="desc" style="margin:-2px 0 8px">数值越大，玻璃越磨砂，背后背景越模糊不清；越小越清晰通透。</div>
             <div style="display:flex;align-items:center;gap:10px">
@@ -1407,9 +1523,11 @@
               <span id="s_blur_v" style="font-size:12px;color:var(--sub);min-width:44px;text-align:right">12px</span>
             </div>
           </div>
+
+          <!-- 4. 区域独立控制 -->
           <div class="field" style="margin-top:var(--gap-out)">
             <label>区域独立控制</label>
-            <div class="desc" style="margin:-2px 0 10px">把<b>任务栏</b>和<b>聊天区</b>彻底拆开，各管各的：调整窗玻璃不再牵连任务栏，两边浓度也能分别调。浓度越低越透（背景图透出），越高越实（文字更清晰）。</div>
+            <div class="desc" style="margin:-2px 0 10px">把<b>任务栏</b>和<b>聊天区</b>彻底拆开，各管各的：调整窗玻璃不再牵连任务栏，两边浓度也能分别调。浓度越低越透（背景图透出），越高越实（文字更清晰）。<b>玻璃效果关闭时，这里会自动禁用并强制 100% 纯色。</b></div>
             <div class="sw-group">
               <div class="sw-row">
                 <label>任务栏玻璃（磨砂模糊）</label>
@@ -1435,16 +1553,11 @@
               <span id="s_main_op_v" style="font-size:12px;color:var(--sub);min-width:44px;text-align:right">58%</span>
             </div>
           </div>
+
+          <!-- 5. 背景 -->
           <div class="field" style="margin-top:var(--gap-out)">
             <label>背景图片</label>
-            <div class="desc" style="margin:-2px 0 10px">整窗背景：可切换预设，或上传你自己的图片。<b>在下面的预览图上点击任意位置</b>，即可选择要展示的那一部分。设置自动保存，下次打开依然生效。</div>
-            <div class="bgprev" id="bgPrev" title="点击图片任意位置，选择要展示的部分" onclick="bgPrevPick(event)">
-              <div class="bgprev-img" id="bgPrevImg"></div>
-              <div class="bgprev-tint" id="bgPrevTint"></div>
-              <div class="bgprev-card">玻璃效果预览</div>
-              <div class="bgprev-mark" id="bgPrevMark"></div>
-              <div class="bgprev-tag" id="bgPrevTag">可见度 70% · 磨砂 12px</div>
-            </div>
+            <div class="desc" style="margin:-2px 0 10px">整窗背景：可切换预设，或上传你自己的图片。<b>在上面的预览图上点击任意位置</b>，即可选择要展示的那一部分。设置自动保存，下次打开依然生效。</div>
             <div class="theme-opts" id="bgOpts">
               <button class="theme-card" data-bg="preset:dark" onclick="setBg('preset:dark')">
                 <span class="swatch" style="background:linear-gradient(160deg,#1a2150,#0c2b3a)"></span>
@@ -1517,6 +1630,21 @@
             </div>
           </div>
           <div class="desc" style="margin-top:0">关闭后侧栏不再出现该按钮，聊天 Agent 一切照常；想恢复时回到这里勾上即可。也可直接编辑 配置.qdai 写 <code>workbench_enabled=0</code>。</div>
+        </div>
+      </div>
+      <!-- 外观实时预览：设置弹窗底部的小窗（任何面板都可见） -->
+      <div class="theme-preview-float" id="themePreviewFloat">
+        <div class="tpf-head">
+          <span>外观实时预览</span>
+          <span class="tpf-tip">调玻璃 / 可见度 / 焦点即时生效 · 点击画面可设焦点</span>
+        </div>
+        <div class="bgprev" id="bgPrev" title="点击图片任意位置，选择要展示的部分" onclick="bgPrevPick(event)">
+          <div class="bgprev-img" id="bgPrevImg"></div>
+          <div class="bgprev-tint" id="bgPrevTint"></div>
+          <div class="bgprev-chat"><span class="b-cap">对话框</span><div class="b-row l"></div><div class="b-row m"></div><div class="b-row s"></div></div>
+          <div class="bgprev-browser"><span class="b-cap">浏览器</span><div class="b-bar"></div><div class="b-line"></div><div class="b-line"></div></div>
+          <div class="bgprev-mark" id="bgPrevMark"></div>
+          <div class="bgprev-tag" id="bgPrevTag">可见度 70% · 磨砂 12px</div>
         </div>
       </div>
     </div>
@@ -1609,6 +1737,12 @@ function addMsg(role, text, animate){
   div.className = 'msg ' + (role === 'me' ? 'me' : 'ai');
   div.innerHTML = '<div class="avatar">' + (role === 'me' ? '我' : 'i') + '</div>' +
                   '<div class="bubble">' + esc(text) + (animate ? '<span class="cursor"></span>' : '') + '</div>';
+  if(role !== 'me'){
+    // AI 头像可点：打开「VS Code 风格编程面板」，看它正在改哪些文件
+    const av = div.querySelector('.avatar');
+    if(av){ av.title = '点击查看 AI 正在改的文件'; av.style.cursor = 'pointer';
+            av.onclick = () => toggleIde(true); }
+  }
   msgs.appendChild(div); scrollEnd();
   return div.querySelector('.bubble');
 }
@@ -1635,12 +1769,10 @@ function renderStatus(s){
   document.getElementById('dvBrowser').textContent = s.browser_text;
   document.getElementById('dvTools').textContent = (s.tools && s.tools.trim()) ? s.tools : '无';
   window._ctx = s.ctx || 4096;
+  window._ctxBase = s.ctx_base || 0;
   document.getElementById('dvCtx').textContent = kfmt(window._ctx) + ' tok';
   setTopTitle(curTitle);
-  const cnum = document.getElementById('ctxNum');
-  if(cnum) cnum.textContent = '0%';
-  const arc = document.getElementById('ctxArc');
-  if(arc) arc.style.strokeDashoffset = '100.53';
+  recalcCtx();
 }
 function kfmt(n){ n = Number(n)||0; return n>=1024 ? (n/1024).toFixed(n%1024?1:0).replace(/\.0$/,'') + 'K' : String(n); }
 
@@ -1808,6 +1940,9 @@ window.__onToken = chunk => {
   _inkBuf += chunk;
   window._full = (window._full || '') + chunk;
   _inkOn = true;
+  // 实时上下文：把流式增量按字符粗估成 token，边生成边涨环
+  window._genTok = (window._genTok || 0) + estTokens(chunk);
+  recalcCtx();
   if(!_inkRaf) _inkRaf = requestAnimationFrame(_inkTick);
 };
 window.__onDone = title => {
@@ -1820,6 +1955,7 @@ window.__onDone = title => {
     _addMsgActs(window._curBubble);
   }
   _collapseBook();
+  _collapseThink();
   window._curBubble = null; window._full = '';
   window.__toolQueue = [];
   busy = false; sendBtn.disabled = false;
@@ -1835,6 +1971,7 @@ window.__onError = err => {
     window._curBubble.textContent = '⚠ ' + err;
   }
   _collapseBook();
+  _collapseThink();
   window._curBubble = null; window._full = '';
   window.__toolQueue = [];
   busy = false; sendBtn.disabled = false;
@@ -1958,15 +2095,138 @@ function _collapseBook(){
   };
   scrollEnd();
 }
-/* 上下文用量 */
-window.__onUsage = u => {
-  if(!u) return;
-  const pt = u.prompt_tokens || 0;
-  const ct = u.completion_tokens || 0;
-  window._bookTokens = (window._bookTokens || 0) + ct;
+/* 思考过程 / 深度思考（CodeBuddy 风格：折叠块，生成时展开，结束后收起） */
+function _ensureThink(){
+  if(window._think) return window._think;
+  const el = document.createElement('div');
+  el.className = 'think open';
+  el.innerHTML = '<div class="think-h"><span class="th-ico">💭</span>思考过程' +
+                 '<span class="th-tip">深度思考中…</span><span class="th-toggle">▾</span></div>' +
+                 '<div class="think-body"></div>';
+  el.querySelector('.think-h').onclick = () => el.classList.toggle('open');
+  const b = window._curBubble;
+  if(b && b.parentNode) b.parentNode.insertBefore(el, b); else msgs.appendChild(el);
+  window._think = el;
+  return el;
+}
+window.__onThinking = chunk => {
+  const el = _ensureThink();
+  el.querySelector('.think-body').appendChild(document.createTextNode(chunk));
+  if(el.scrollIntoView) el.scrollIntoView({block:'nearest'});
+};
+window.__onModelCall = p => {
+  const eh = document.getElementById('emptyHint'); if(eh) eh.remove();
+  if(!window._book) _newBook();
+  const pages = window._book.querySelector('.pages');
+  const div = document.createElement('div');
+  div.className = 'page model';
+  div.innerHTML = '<div class="ph"><span class="dot run"></span>🧠 调用模型 · ' +
+                  esc(p.model || '默认') + '<span class="r">第 ' + esc(p.round) + ' 轮</span></div>';
+  pages.appendChild(div);
+  scrollEnd();
+};
+function _collapseThink(){
+  const el = window._think; window._think = null;
+  if(!el) return;
+  const n = (el.querySelector('.think-body').textContent || '').length;
+  if(!n){ el.remove(); return; }
+  el.classList.remove('open');
+  el.querySelector('.th-tip').textContent = n + ' 字';
+}
+/* ---------- VS Code 风格编程面板（插件 vscode-ide） ---------- */
+window._ideFiles = {};        // path -> {name, content, ts}
+window._ideOpen = null;      // 当前打开的文件路径
+window._idePlugin = false;    // 是否已安装 vscode-ide 插件
+window._wbPlugin = false;     // 是否已安装 workbench 插件
+
+function renderIdeTree(){
+  const box = document.getElementById('ideTree');
+  if(!box) return;
+  const paths = Object.keys(window._ideFiles);
+  if(!paths.length){ box.innerHTML = '<div class="ide-empty">暂无改动</div>'; return; }
+  paths.sort((a, b) => (window._ideFiles[b].ts || 0) - (window._ideFiles[a].ts || 0));
+  box.innerHTML = paths.map(p => {
+    const f = window._ideFiles[p];
+    const key = p.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return '<button class="ide-file' + (p === window._ideOpen ? ' on' : '') +
+           '" onclick="openIdeFile(\'' + key + '\')">' +
+           '<span class="fi">📄</span><span class="fn">' + esc(f.name) + '</span></button>';
+  }).join('');
+}
+function openIdeFile(p){
+  window._ideOpen = p;
+  const f = window._ideFiles[p];
+  const tab = document.getElementById('ideTab');
+  if(tab) tab.textContent = f ? (f.name + '  ·  ' + p) : '未选择文件';
+  renderIdeCode();
+  renderIdeTree();
+}
+function renderIdeCode(){
+  const box = document.getElementById('ideCode');
+  if(!box) return;
+  const f = window._ideFiles[window._ideOpen];
+  if(!f){ box.innerHTML = '<div class="ide-empty">从左侧选择一个文件查看内容</div>'; return; }
+  const lines = String(f.content || '').split('\n');
+  box.innerHTML = lines.map((l, i) =>
+    '<div class="ide-line"><span class="ide-ln">' + (i + 1) + '</span>' +
+    '<span class="ide-lc">' + esc(l) + '</span></div>').join('');
+  box.scrollTop = 0;
+}
+window.__onFileChange = p => {
+  if(!p || !p.path) return;
+  window._ideFiles[p.path] = {name: p.name || p.path, content: p.content || '', ts: p.ts || Date.now()};
+  const sub = document.getElementById('ideSub');
+  if(sub) sub.textContent = (p.name || '文件') + ' 刚刚被改动';
+  if(!window._ideOpen) window._ideOpen = p.path;
+  renderIdeTree();
+  if(window._ideOpen === p.path) renderIdeCode();   // 打开中的文件：内容实时跟着变
+};
+function toggleIde(show){
+  const p = document.getElementById('idePanel');
+  if(!p) return;
+  if(show && !window._idePlugin){
+    const sub = document.getElementById('ideSub');
+    if(sub) sub.textContent = '未安装「VS Code 风格编程界面」插件，去市场安装后可用';
+    return;
+  }
+  const on = (show === undefined) ? !p.classList.contains('show') : !!show;
+  p.classList.toggle('show', on);
+  p.setAttribute('aria-hidden', on ? 'false' : 'true');
+  if(on){ renderIdeTree(); renderIdeCode(); }
+}
+/* 插件安装状态实时扫描：决定「工作台」入口与编程面板是否可用 */
+async function refreshPluginFlags(){
+  try {
+    const r = await pywebview.api.list_plugins();
+    const ids = (r.items || []).map(it => (it.id || '').toLowerCase());
+    window._idePlugin = ids.indexOf('vscode-ide') >= 0;
+    window._wbPlugin = ids.indexOf('workbench') >= 0;
+  } catch(e){
+    window._idePlugin = false; window._wbPlugin = false;
+  }
+  applyWorkbenchVisibility();
+  return {ide: window._idePlugin, workbench: window._wbPlugin};
+}
+/* 上下文用量：混合「服务端精确 prompt 用量」+「前端按流式增量实时估算」 */
+function estTokens(str){
+  if(!str) return 0;
+  const cjk = (str.match(/[一-鿿぀-ヿ＀-￯]/g) || []).length;
+  const other = str.length - cjk;
+  return Math.round(cjk + other / 4);
+}
+function recalcCtx(){
   const ctx = window._ctx || 4096;
-  const pct = Math.min(100, Math.round(pt / ctx * 100));
-  // 环形上下文用量：填充弧 = 已用（pct），剩余 = 可用。靠近满（≥90%）转红预警。
+  // 已用 = max(服务端精确 prompt 用量, 服务端快照, 本地估算)
+  //   服务端快照含 system prompt + 事实摘要 + 工具 schema + 本轮输入（唯一可信来源）
+  //   本地估算兜底：把「输入框里还没发出去的文字」也算进去，
+  //   否则粘贴一篇长论文时环还是 0%，用户以为没占上下文，结果一发就超。
+  let hist = 0;
+  document.querySelectorAll('#msgs .bubble').forEach(b => { hist += estTokens(b.innerText || ''); });
+  const pending = estTokens(document.getElementById('input')?.value || '');
+  const local = hist + pending + (window._ctxBase || 0);
+  const promptTok = Math.max(window._promptTok || 0, window._ctxUsed || 0, local);
+  const used = promptTok + (window._genTok || 0);
+  const pct = Math.min(100, Math.round(used / ctx * 100));
   const C = 100.53;  // 2πr, r=16
   const arc = document.getElementById('ctxArc');
   if(arc){
@@ -1976,22 +2236,100 @@ window.__onUsage = u => {
   const num = document.getElementById('ctxNum');
   if(num) num.textContent = pct + '%';
   const gauge = document.getElementById('ctxGauge');
-  if(gauge) gauge.title = '上下文已用 ' + pct + '%（' + kfmt(pt) + ' / ' + kfmt(ctx) +
+  if(gauge) gauge.title = '上下文已用约 ' + pct + '%（' + kfmt(used) + ' / ' + kfmt(ctx) + ' tok · 实时估算）';
+}
+/* 服务端下发的上下文快照：容量 + 本轮实际占用（含 system/工具 schema/本轮输入） */
+window.__onCtx = c => {
+  if(!c) return;
+  if(c.capacity) window._ctx = c.capacity;
+  window._ctxUsed = c.used || 0;
+  window._ctxBase = 0;
+  recalcCtx();
+  const gauge = document.getElementById('ctxGauge');
+  if(gauge && c.capacity){
+    gauge.title = '上下文已用约 ' + (c.pct || 0) + '%（' + kfmt(c.used || 0) + ' / ' +
+                  kfmt(c.capacity) + ' tok · 含系统提示与工具定义）';
+  }
+};
+window.__onUsage = u => {
+  if(!u) return;
+  const pt = u.prompt_tokens || 0;
+  const ct = u.completion_tokens || 0;
+  window._promptTok = pt;
+  window._bookTokens = (window._bookTokens || 0) + ct;
+  recalcCtx();
+  const gauge = document.getElementById('ctxGauge');
+  if(gauge) gauge.title = '上下文已用 ' + (Math.min(100, Math.round(pt / (window._ctx||4096) * 100))) +
+                          '%（' + kfmt(pt) + ' / ' + kfmt(window._ctx||4096) +
                           ' tok · 输出 ' + kfmt(ct) + '）';
 };
 
 /* ---------- 发送 ---------- */
+/* ---------- 附件（拖拽 / 粘贴 / ＋菜单） ---------- */
+window._atts = [];
+function addAtt(file){
+  if(!file) return;
+  const isImg = /^image\//.test(file.type || '') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(file.name || '');
+  const att = { name: file.name || '附件', kind: isImg ? 'image' : 'file', mime: file.type || '',
+                size: file.size || 0, _file: file };
+  window._atts.push(att);
+  renderAtts();
+}
+function removeAtt(i){
+  window._atts.splice(i, 1);
+  renderAtts();
+}
+function clearAtts(){ window._atts = []; renderAtts(); }
+function renderAtts(){
+  let row = document.getElementById('attRow');
+  if(!row){
+    row = document.createElement('div'); row.id = 'attRow'; row.className = 'att-row';
+    const ib = document.getElementById('inputBox');
+    if(ib) ib.insertBefore(row, ib.firstChild);
+  }
+  if(!window._atts.length){ row.style.display = 'none'; row.innerHTML = ''; return; }
+  row.style.display = 'flex';
+  row.innerHTML = window._atts.map((a, i) =>
+    '<span class="att-chip' + (a.kind === 'image' ? ' img' : '') + '">' +
+    (a.kind === 'image' ? '🖼️ ' : '📎 ') + esc(a.name) +
+    '<button class="att-x" onclick="removeAtt(' + i + ')" title="移除">✕</button></span>'
+  ).join('');
+}
 async function send(){
   const text = input.value.trim();
-  if(!text || busy) return;
+  const atts = window._atts || [];
+  if((!text && !atts.length) || busy) return;
   busy = true; sendBtn.disabled = true;
   toggleStop(true);
   input.value = ''; input.style.height = 'auto';
-  addMsg('me', text);
+  window._genTok = 0; window._promptTok = 0; window._ctxUsed = 0;
+  if(text) addMsg('me', text);
+  // 把图片/文件作为「我」的消息回显（后端也会真正携带附件）
+  atts.forEach(a => addMsg('me', (a.kind === 'image' ? '🖼️ 图片：' : '📎 文件：') + a.name));
   window._curBubble = addMsg('ai', '', true);
-  window._full = '';
-  try { await pywebview.api.send_message(text); }
-  catch(e){ window.__onError(String(e)); }
+  window._full = ''; window._think = null;
+  recalcCtx();
+  try {
+    // 图片读成 dataURL 直接内联；文件只传元信息（路径/名），由后端按路径读取
+    const payload = await Promise.all(atts.map(async a => {
+      if(a.kind === 'image'){
+        const data = await new Promise(res => {
+          try {
+            const r = new FileReader();
+            r.onload = e => res(String(e.target.result || ''));
+            r.onerror = () => res('');
+            r.readAsDataURL(a._file);
+          } catch(_){ res(''); }
+        });
+        const meta = { name: a.name, kind: 'image', mime: a.mime };
+        if(data) meta.data = data; else meta.size = a.size;   // 读不到内容也别中断发送
+        return meta;
+      }
+      return { name: a.name, kind: 'file', mime: a.mime, size: a.size, path: a._file.path || '' };
+    }));
+    await pywebview.api.send_message(text, payload.length ? payload : null);
+  } catch(e){ window.__onError(String(e)); }
+  clearAtts();
 }
 
 /* ---------- 停止生成 ---------- */
@@ -2022,14 +2360,11 @@ async function exportConv(){
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/* ---------- 拖文件进聊天（追加路径，可直接发送） ---------- */
+/* ---------- 拖文件 / 图片进聊天（真正的附件：图片读成图、文件带路径） ---------- */
 (function(){
   const zone = document.querySelector('.main');
   if(!zone) return;
-  const showDrop = e => {
-    e.preventDefault();
-    document.body.style.boxShadow = 'inset 0 0 0 3px var(--me1)';
-  };
+  const showDrop = e => { e.preventDefault(); document.body.style.boxShadow = 'inset 0 0 0 3px var(--me1)'; };
   const hideDrop = () => { document.body.style.boxShadow = ''; };
   window.addEventListener('dragover', showDrop);
   window.addEventListener('dragleave', e => { if(e.relatedTarget === null) hideDrop(); });
@@ -2037,13 +2372,18 @@ async function exportConv(){
     if(e.target && e.target.closest && e.target.closest('.addr-bar')) return; // 地址栏单独处理 URL
     if(!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
     e.preventDefault(); hideDrop();
-    const paths = [];
-    for(const f of e.dataTransfer.files){ if(f.path) paths.push(f.path); }
-    if(!paths.length) return;
-    const pre = input.value ? input.value.replace(/\s+$/, '') + '\n' : '';
-    input.value = pre + (paths.length === 1 ? paths[0] : paths.join('\n'));
-    input.dispatchEvent(new Event('input'));
-    input.focus();
+    Array.from(e.dataTransfer.files).forEach(f => addAtt(f));
+    if(e.dataTransfer.files.length) input.focus();
+  });
+  // 粘贴图片 / 文件（截图直接 Ctrl+V 即可）
+  const inp = document.getElementById('input');
+  if(inp) inp.addEventListener('paste', e => {
+    const dt = e.clipboardData; if(!dt) return;
+    let got = false;
+    for(const it of (dt.items || [])){
+      if(it.kind === 'file'){ const f = it.getAsFile(); if(f){ addAtt(f); got = true; } }
+    }
+    if(got) e.preventDefault();
   });
 })();
 
@@ -2196,12 +2536,14 @@ async function mktInstall(kind, id){
   mktTip(r && r.ok ? '已安装「' + id + '」，重启软件后生效'
                    : '安装失败：' + ((r && r.error) || '未知错误'), !(r && r.ok));
   await mktRefresh();
+  await refreshPluginFlags();   // 装完立刻反映：工作台入口 / 编程面板是否可用
 }
 async function mktRemove(kind, id){
   const r = await pywebview.api.market_remove(kind, id);
   mktTip(r && r.ok ? '已删除「' + id + '」'
                    : '删除失败：' + ((r && r.error) || '未知错误'), !(r && r.ok));
   await mktRefresh();
+  await refreshPluginFlags();   // 卸掉后对应入口立刻消失
 }
 async function mktToggle(kind, id, on){
   const r = await pywebview.api.market_toggle(kind, id, on);
@@ -2384,14 +2726,19 @@ async function refreshCtx(){
     const tier = tierBadgeHtml(window._settings || {model: s.model || ''});
     cxModel.innerHTML = esc(s.model || '未配置') + ' ' + tier;
   }
-  document.getElementById('cxCap').textContent = kfmt(s.capacity) + ' tok';
+  const capSrc = {manual:'手动指定', vendor:'厂商声明', table:'型号查表', default:'保守默认'}[s.ctx_source] || '未知';
+  document.getElementById('cxCap').innerHTML =
+    kfmt(s.capacity) + ' tok <span style="font-size:11px;color:var(--sub)">（来源：' + capSrc + '）</span>';
   document.getElementById('cxUsed').textContent = kfmt(s.estimated) + ' tok（' + s.ratio + '%）';
   document.getElementById('cxBar').style.width = Math.min(100, s.ratio) + '%';
   document.getElementById('cxMsgs').textContent = s.msg_count + ' 条';
   document.getElementById('cxDetail').textContent =
     '系统提示 ' + s.sys_chars + ' 字符 · 事实 ' + s.facts_n + ' 条 / ' + s.facts_chars + ' 字符' +
     ' · 注入上限 ' + s.facts_limit + ' 条 / ' + s.summary_max_chars + ' 字符' +
-    ' · 模型容量配置 llm_ctx=' + s.llm_ctx;
+    ' · 模型容量配置 llm_ctx=' + s.llm_ctx +
+    (s.ctx_source === 'default'
+      ? ' · 注意：厂商未声明该模型的上下文窗口，当前用保守默认值；点「重新探测容量」可向厂商核对'
+      : '');
   document.getElementById('cxFactsN').textContent = s.facts_limit;
   document.getElementById('cxFactsMaxChars').textContent = s.summary_max_chars;
   document.getElementById('cxLimit').value = s.llm_ctx || '';
@@ -2432,6 +2779,18 @@ async function ctxSetLimit(){
   await pywebview.api.ctx_update({op:'limit', limit:n});
   refreshCtx();
 }
+/* 重新向厂商探测当前模型的真实上下文窗口（context_length） */
+async function ctxDetect(){
+  const btn = event && event.target ? event.target : null;
+  if(btn){ btn.disabled = true; btn.textContent = '探测中…'; }
+  try {
+    await pywebview.api.ctx_update({op:'detect'});
+    await refreshCtx();
+    try { renderStatus(await pywebview.api.get_status()); } catch(e){}
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '重新探测容量'; }
+  }
+}
 
 /* ---------- 设置：两栏弹窗 ---------- */
 function setPane(name){
@@ -2468,6 +2827,31 @@ function applyFields(f){
   document.getElementById('s_lbase').value = f.llm_base_url || '';
   document.getElementById('s_lmodel').value = f.llm_model || '';
   applyModeVisibility();
+  refreshCurModelDisplay();
+}
+/* 在模型面板里显示「当前调用模型」，新建/编辑档案都能看到用的是哪个模型 */
+function refreshCurModelDisplay(){
+  const cm = document.getElementById('curModelBox');
+  const cs = document.getElementById('curModelShow');
+  if(!cm || !cs) return;
+  const mode = document.getElementById('s_mode') ? document.getElementById('s_mode').value : 'cloud';
+  const modelName = mode === 'local'
+    ? (document.getElementById('s_lmodel').value || '')
+    : (document.getElementById('s_model').value || '');
+  if(modelName){ cm.style.display = ''; cs.textContent = modelName; }
+  else { cm.style.display = 'none'; }
+}
+/* 更换当前档案调用的模型：云端重新验证挑新模型（按档案名覆盖，不新建重复）；
+   本地直接聚焦「本地模型名」让你改完保存即可。 */
+function changeCurrentModel(){
+  const mode = document.getElementById('s_mode').value;
+  if(mode === 'local'){
+    const el = document.getElementById('s_lmodel');
+    if(el){ el.focus(); el.select(); }
+    setFormTip('直接在下方「本地模型名」改成新模型，再点保存即可', null);
+    return;
+  }
+  addCloudProfile();
 }
 function buildProfileOpts(){
   const sel = document.getElementById('s_profiles');
@@ -2530,12 +2914,22 @@ async function showSettings(){
   const wb = document.getElementById('s_wb');
   if(wb) wb.setAttribute('aria-checked', !!s.workbench_enabled ? 'true' : 'false');
   applyWorkbench(s);               // 按开关显示/隐藏侧栏工作台按钮
+  await refreshPluginFlags();      // 实时扫描已装插件：决定「工作台」入口与编程面板是否存在
   const gl = document.getElementById('s_glass');
   if(gl) gl.setAttribute('aria-checked', s.glass_enabled !== false ? 'true' : 'false');
   const rf = document.getElementById('s_refract');
   if(rf) rf.setAttribute('aria-checked', s.glass_refract !== false ? 'true' : 'false');
   applyGlass(s.glass_enabled !== false, s.glass_refract !== false);
+  // 玻璃 / 磨砂按组件独立：把后端存的组件清单读进 _settings 再应用
+  window._settings = window._settings || {};
+  window._settings.glass = s.glass_enabled !== false;
+  window._settings.glass_blur = s.glass_blur;
+  window._settings.glass_sat = s.glass_sat;
+  window._settings.glass_components = Array.isArray(s.glass_components) ? s.glass_components : Object.keys(GLASS_COMPS);
+  window._settings.frost_components = Array.isArray(s.frost_components) ? s.frost_components : window._settings.glass_components.slice();
+  applyGlassComps();
   applyRegionSettings(s);   // 任务栏 / 聊天区 各自的玻璃与浓度
+  syncRegionEnabled();      // 玻璃关 → 区域浓度滑块禁用并强制纯色
   document.getElementById('saveTip').style.visibility = 'hidden';
   document.getElementById('mask').classList.add('show');
   document.body.classList.add('modal-open');
@@ -2545,6 +2939,21 @@ function applyWorkbench(s){
   const on = !!s && s.workbench_enabled !== false && s.workbench_enabled !== 'false';
   const b = document.getElementById('wbBtn');
   if(b) b.style.display = on ? '' : 'none';
+  applyWorkbenchVisibility();
+}
+/* 工作台是「插件」：没装 workbench 插件时，设置里根本不该出现「工作台」这一项 */
+function applyWorkbenchVisibility(){
+  const installed = window._wbPlugin === true;
+  const nav = document.querySelector('.set-nav .nav-btn[data-pane="workbench"]');
+  if(nav) nav.style.display = installed ? '' : 'none';
+  const pane = document.getElementById('pane-workbench');
+  if(pane && !installed) pane.style.display = 'none';
+  // 侧栏入口同样受插件状态约束（装了插件 + 开关打开 才显示）
+  const btn = document.getElementById('wbBtn');
+  if(btn && !installed) btn.style.display = 'none';
+  const s = window._settings || {};
+  const on = installed && s.workbench_enabled !== false && s.workbench_enabled !== 'false';
+  if(btn && installed) btn.style.display = on ? '' : 'none';
 }
 async function setWorkbench(on){
   try { await pywebview.api.save_settings({workbench_enabled: on ? 'True' : 'False'}); } catch(e){}
@@ -2552,6 +2961,8 @@ async function setWorkbench(on){
   renderStatus(await pywebview.api.get_status());
 }
 function hideSettings(){ document.getElementById('mask').classList.remove('show'); document.body.classList.remove('modal-open'); }
+/* 记忆书：打开「设置 → 记忆书」面板（与知识库彻底分开，不共用入口） */
+function openMemBook(){ showSettings().then(() => setPane('mem')); }
 /* ---------- 个性化：主题 ---------- */
 function applyTheme(t){
   if(t !== 'light' && t !== 'dark') t = 'dark';
@@ -2574,11 +2985,78 @@ async function setTheme(t){
   try { await pywebview.api.set_glass(window._glassOn !== false); } catch(e){}
 }
 /* ---------- 玻璃材质开关 ---------- */
+/* 玻璃 / 磨砂按组件独立开启：给各组件直接注入 backdrop-filter，未选中即纯色实底 */
+const GLASS_COMPS = {
+  top:     {sel:'.topbar',        name:'顶栏'},
+  input:   {sel:'#inputBox',      name:'输入框'},
+  modal:   {sel:'.modal',         name:'弹窗'},
+  browser: {sel:'.bgprev-browser',name:'浏览器'}
+};
+function applyGlassComps(){
+  const s = window._settings || {};
+  // 总开关：优先用 _settings.glass，回退用后端返回的 glass_enabled
+  const master = (s.glass !== undefined) ? (s.glass !== false) : (s.glass_enabled !== false);
+  const comps = s.glass_components || Object.keys(GLASS_COMPS);
+  const frosts = s.frost_components || comps.slice();
+  const blur = (s.glass_blur != null ? s.glass_blur : 12);
+  const sat = (s.glass_sat != null ? s.glass_sat : 140);
+  for(const k in GLASS_COMPS){
+    const nodes = document.querySelectorAll(GLASS_COMPS[k].sel);
+    const on = master && comps.indexOf(k) >= 0;
+    const frost = on && frosts.indexOf(k) >= 0;
+    nodes.forEach(el => {
+      if(on){
+        const bf = frost ? ('blur(' + blur + 'px) saturate(' + sat + '%)')
+                         : ('saturate(' + sat + '%)');
+        el.style.backdropFilter = bf;
+        el.style.webkitBackdropFilter = bf;
+        el.style.background = 'var(--glass-2)';
+      } else {
+        el.style.backdropFilter = 'none';
+        el.style.webkitBackdropFilter = 'none';
+        el.style.background = 'var(--bg-panel)';
+      }
+    });
+  }
+  // 同步组件选择 UI 的选中态
+  syncCompChips();
+}
+function _toggleComp(list, key){
+  const i = list.indexOf(key);
+  if(i >= 0) list.splice(i, 1); else list.push(key);
+  return list;
+}
+async function toggleGlassComp(k){
+  const s = window._settings || (window._settings = {});
+  s.glass_components = _toggleComp(s.glass_components || Object.keys(GLASS_COMPS).slice(), k);
+  applyGlassComps();
+  try { await pywebview.api.save_settings({glass_components: s.glass_components}); } catch(e){}
+}
+async function toggleFrostComp(k){
+  const s = window._settings || (window._settings = {});
+  s.frost_components = _toggleComp(s.frost_components || Object.keys(GLASS_COMPS).slice(), k);
+  applyGlassComps();
+  try { await pywebview.api.save_settings({frost_components: s.frost_components}); } catch(e){}
+}
+function syncCompChips(){
+  const s = window._settings || {};
+  const comps = s.glass_components || Object.keys(GLASS_COMPS);
+  const frosts = s.frost_components || comps.slice();
+  const gc = document.getElementById('glassCompChips');
+  const fc = document.getElementById('frostCompChips');
+  if(gc) gc.innerHTML = Object.keys(GLASS_COMPS).map(k =>
+    '<button class="comp-chip' + (comps.indexOf(k) >= 0 ? ' on' : '') + '" onclick="toggleGlassComp(\'' + k + '\')">' +
+    GLASS_COMPS[k].name + '</button>').join('');
+  if(fc) fc.innerHTML = Object.keys(GLASS_COMPS).map(k =>
+    '<button class="comp-chip' + (frosts.indexOf(k) >= 0 ? ' on' : '') + '" onclick="toggleFrostComp(\'' + k + '\')">' +
+    GLASS_COMPS[k].name + '</button>').join('');
+}
 function applyGlass(on, refract){
   const root = document.documentElement;
   root.setAttribute('data-glass', on ? 'on' : 'off');
   root.setAttribute('data-refract', refract ? 'on' : 'off');
   window._glassOn = on;
+  applyGlassComps();
   updateBgPreview();
 }
 async function setGlass(on){
@@ -2586,6 +3064,7 @@ async function setGlass(on){
   try { await pywebview.api.save_settings({glass_enabled: on ? '1' : '0'}); } catch(e){}
   // 同步整窗 DWM 玻璃（开 → 亚克力 + 窗体透明；关 → 还原不透明窗口）
   try { await pywebview.api.set_glass(on); } catch(e){}
+  syncRegionEnabled();
 }
 async function setRefract(on){
   applyGlass(_swOn('s_glass'), on);
@@ -2596,12 +3075,11 @@ async function onProfileChange(){
   loadProfileFields(key);
   // 选已有档案 → 立即切换为当前使用的 API（秒切，不用再点保存）
   if(key.startsWith('p')){
-    await saveModel(true);
+    await saveModel(true, true);
   }
 }
-async function saveModel(silent){
+async function saveModel(silent, skipProbe){
   const mode = document.getElementById('s_mode').value;
-  let name = document.getElementById('s_name').value.trim();
   const f = {
     llm_mode: mode,
     base_url: document.getElementById('s_base').value.trim(),
@@ -2609,10 +3087,19 @@ async function saveModel(silent){
     api_key: document.getElementById('s_key').value.trim(),
     llm_base_url: document.getElementById('s_lbase').value.trim(),
     llm_model: document.getElementById('s_lmodel').value.trim(),
-    name: name
+    name: (document.getElementById('s_name').value || '').trim()
   };
+  // 本地模式 / 秒切已有档案：直接保存，不弹验证
+  if(mode === 'local' || skipProbe){
+    persistProfile(f, silent);
+    return;
+  }
+  // 云端模式：保存即验证 → 弹厂商模型 / 手填
+  await addCloudProfile();
+}
+function persistProfile(f, silent){
   // 没写名称 → 自动用「模型 @ 域名」生成，保证同一 API 只存一条
-  const host = mode === 'local' ? (f.llm_base_url || '') : (f.base_url || '');
+  const host = f.llm_mode === 'local' ? (f.llm_base_url || '') : (f.base_url || '');
   if(!f.name){
     let h = host;
     try { h = new URL(host).hostname || host; } catch(e){}
@@ -2627,16 +3114,30 @@ async function saveModel(silent){
     llm_mode: f.llm_mode, base_url: f.base_url, model: f.model, api_key: f.api_key,
     llm_base_url: f.llm_base_url, llm_model: f.llm_model, profiles: profs
   };
-  const r = await pywebview.api.save_settings(payload);
-  const newIdx = profs.findIndex(p => p.name === f.name);
-  window._activeKey = 'p' + newIdx;
-  buildProfileOpts();
-  const tip = document.getElementById('saveTip');
-  if(!silent){
-    tip.textContent = r.configured ? '✓ 已保存并生效，已存入模型档案' : '已保存，但 Key/地址还不完整';
+  pywebview.api.save_settings(payload).then(r => {
+    const newIdx = profs.findIndex(p => p.name === f.name);
+    window._activeKey = 'p' + newIdx;
+    buildProfileOpts();
+    const tip = document.getElementById('saveTip');
+    if(!silent){
+      tip.textContent = (r && r.configured) ? '✓ 已保存并生效，已存入模型档案' : '已保存，但 Key/地址还不完整';
+      tip.className = 'save-tip';
+      tip.style.visibility = 'visible';
+    }
+    pywebview.api.get_status().then(renderStatus);
+  }).catch(e => {
+    const tip = document.getElementById('saveTip');
+    tip.textContent = '保存失败：' + (e || '');
+    tip.className = 'save-tip err';
     tip.style.visibility = 'visible';
-  }
-  renderStatus(await pywebview.api.get_status());
+  });
+}
+function setFormTip(msg, kind){
+  const tip = document.getElementById('saveTip');
+  if(!tip) return;
+  tip.textContent = msg;
+  tip.className = 'save-tip' + (kind === 'err' ? ' err' : '');
+  tip.style.visibility = 'visible';
 }
 async function delProfile(){
   const key = window._activeKey;
@@ -2653,34 +3154,23 @@ async function delProfile(){
   await pywebview.api.save_settings({profiles: window._profiles});
 }
 
-/* ---------- 云端 API 接入向导 ----------
-   流程：填地址+Key → 后端验证并拉取模型清单 → 用户选一个 → 存为档案并启用
-        厂商不给清单时降级到第三步：手填模型名，用一次极小请求做真实验证   */
+/* ---------- 云端 API 接入：保存即验证 ----------
+   流程：点「保存」→ 后端验证地址+Key 并拉模型清单 → 弹窗选模型
+        厂商不给清单 → 弹窗手填模型名，用一次极小请求真实验证   */
 let _apiWizModels = [];      // 厂商返回的模型清单
 let _apiWizPick = '';        // 当前选中的模型 id
 let _apiWizBase = '';        // 归一后的 base_url
 let _apiWizKey = '';         // 本次验证用的 Key（只在内存里）
 
-function openApiWiz(){
-  document.getElementById('apiMask').classList.add('show');
-  document.body.classList.add('modal-open');
-  apiWizGo(1);
-  // 预填当前配置，省得用户重敲
-  try {
-    const s = window._settings || {};
-    document.getElementById('api_base').value = s.base_url || '';
-    document.getElementById('api_key').value = (s.api_key && !s.api_key.startsWith('<')) ? s.api_key : '';
-  } catch(e){}
-}
 function hideApiWiz(){
   document.getElementById('apiMask').classList.remove('show');
   document.body.classList.remove('modal-open');
   _apiWizKey = '';   // 走人即清 Key，不留在内存
 }
 function apiWizGo(step){
-  ['apiWizStep1','apiWizStep2','apiWizStep3'].forEach((id, i) => {
+  ['apiWizStep2','apiWizStep3'].forEach((id, i) => {
     const el = document.getElementById(id);
-    if(el) el.style.display = (i === step - 1) ? 'block' : 'none';
+    if(el) el.style.display = (i === step - 2) ? 'block' : 'none';
   });
 }
 function apiWizState(boxId, kind, msg){
@@ -2690,42 +3180,36 @@ function apiWizState(boxId, kind, msg){
   box.innerHTML = '<div class="api-state ' + kind + '"><span class="s-ico">' + ico +
                    '</span><span class="s-tx">' + esc(msg) + '</span></div>';
 }
-async function apiVerify(){
-  const base = (document.getElementById('api_base').value || '').trim();
-  const key = (document.getElementById('api_key').value || '').trim();
-  const name = (document.getElementById('api_name').value || '').trim();
-  if(!base){ apiWizState('apiStateBox','err','请先填写接口地址（Base URL）'); return; }
-  if(!key){ apiWizState('apiStateBox','err','请先填写 API Key'); return; }
-  const btn = document.getElementById('apiVerifyBtn');
-  btn.disabled = true; btn.textContent = '验证中…';
-  apiWizState('apiStateBox','warn','正在验证 Key 并获取模型清单…');
+async function addCloudProfile(){
+  const base = document.getElementById('s_base').value.trim();
+  const key = document.getElementById('s_key').value.trim();
+  if(!base){ setFormTip('请先填写接口地址（Base URL）', 'err'); return; }
+  if(!key){ setFormTip('请先填写 API Key', 'err'); return; }
+  document.getElementById('apiMask').classList.add('show');
+  document.body.classList.add('modal-open');
+  apiWizGo(2);
+  const box = document.getElementById('apiModelList');
+  if(box) box.innerHTML = '<div class="pop-loading">正在验证 Key 并获取模型清单…</div>';
+  document.getElementById('apiWizStep2Desc').textContent = '正在验证接口可用性…';
   let r;
   try { r = await pywebview.api.api_probe(base, key); }
   catch(e){ r = {ok:false, needs_manual:false, message:'调用失败：' + (e || '未知错误')}; }
-  btn.disabled = false; btn.textContent = '验证并获取模型';
   _apiWizBase = (r && r.base_url) ? r.base_url : base;
   _apiWizKey = key;
   if(r && r.ok){
     _apiWizModels = r.models || [];
     if(!_apiWizModels.length){
-      apiWizState('apiStateBox','warn','Key 可用，但厂商没返回模型列表，请手动填写模型名');
-      document.getElementById('api_manual_name').value = name;
-      apiWizGo(3);
-      return;
+      apiWizGo(3); return;
     }
-    apiWizState('apiStateBox','ok', r.message || ('已获取 ' + _apiWizModels.length + ' 个模型'));
+    document.getElementById('apiWizStep2Desc').innerHTML = '该接口可用。下面是厂商提供的全部模型，已按档位排序——<b>旗舰</b>最强最贵，<b>均衡</b>适合日常，<b>轻量</b>最省钱。';
     renderApiModelList();
-    apiWizGo(2);
     return;
   }
   if(r && r.needs_manual){
-    // 厂商不给清单：走手填模型名的兜底路径
-    apiWizState('apiStateBox','warn', r.message || '该接口不提供模型清单，请手动填写模型名');
-    document.getElementById('api_manual_name').value = name;
-    apiWizGo(3);
-    return;
+    apiWizGo(3); return;
   }
-  apiWizState('apiStateBox','err', (r && r.message) || '验证失败');
+  hideApiWiz();
+  setFormTip((r && r.message) || '验证失败：地址或密钥不可用', 'err');
 }
 function renderApiModelList(){
   const box = document.getElementById('apiModelList');
@@ -2763,39 +3247,38 @@ function apiPickModel(el){
   el.classList.add('on');
   _apiWizPick = el.getAttribute('data-id') || '';
 }
-function apiBackTo1(){
-  apiWizGo(1);
-  document.getElementById('apiStateBox').innerHTML = '';
-}
+// （模型选择 / 手填弹窗的「返回修改」直接调用 hideApiWiz 关闭，回到模型档案表单）
 async function apiUseModel(){
-  if(!_apiWizPick){ apiWizState('apiStateBox','err','请先选择一个模型'); apiWizGo(2); return; }
-  const name = (document.getElementById('api_name').value || '').trim();
+  if(!_apiWizPick){ apiWizState('apiModelState','err','请先选择一个模型'); return; }
+  const name = (document.getElementById('s_name').value || '').trim();
   const hit = _apiWizModels.find(m => m.id === _apiWizPick);
   const tier = hit ? hit.tier : '';
+  const ctx = hit ? (hit.ctx || 0) : 0;
   const btn = document.getElementById('apiUseBtn');
   btn.disabled = true; btn.textContent = '保存中…';
   let r;
   try {
-    r = await pywebview.api.api_add_profile(_apiWizBase, _apiWizKey, _apiWizPick, name, tier);
+    r = await pywebview.api.api_add_profile(_apiWizBase, _apiWizKey, _apiWizPick, name, tier, ctx);
   } catch(e){ r = {ok:false, error:'保存失败：' + (e || '')}; }
   btn.disabled = false; btn.textContent = '使用选中的模型';
   if(!r || !r.ok){
-    apiWizState('apiStateBox','err', (r && r.error) || '保存失败');
+    apiWizState('apiModelState','err', (r && r.error) || '保存失败');
     return;
   }
   window._settings = r.settings || window._settings;
   window._profiles = (r.settings && r.settings.profiles) || window._profiles || [];
+  document.getElementById('s_model').value = _apiWizPick;
   buildProfileOpts();
+  refreshCurModelDisplay();
   refreshModelName(r.settings);
   hideApiWiz();
-  const tip = document.getElementById('saveTip');
-  if(tip){ tip.textContent = '✓ 已添加并启用：' + _apiWizPick; tip.style.visibility = 'visible'; }
+  setFormTip('✓ 已添加并启用：' + _apiWizPick, null);
   renderStatus(await pywebview.api.get_status());
 }
 async function apiManualCheck(){
   const mid = (document.getElementById('api_manual_model').value || '').trim();
-  const name = (document.getElementById('api_manual_name').value || '').trim();
   if(!mid){ apiWizState('apiManualState','err','请填写模型名'); return; }
+  const name = (document.getElementById('s_name').value || '').trim();
   const btn = document.getElementById('apiManualBtn');
   btn.disabled = true; btn.textContent = '验证中…';
   apiWizState('apiManualState','warn','正在用该模型名做一次真实调用验证…');
@@ -2818,11 +3301,12 @@ async function apiManualCheck(){
   }
   window._settings = saved.settings || window._settings;
   window._profiles = (saved.settings && saved.settings.profiles) || window._profiles || [];
+  document.getElementById('s_model').value = mid;
   buildProfileOpts();
+  refreshCurModelDisplay();
   refreshModelName(saved.settings);
   hideApiWiz();
-  const tip = document.getElementById('saveTip');
-  if(tip){ tip.textContent = '✓ 已添加并启用：' + mid; tip.style.visibility = 'visible'; }
+  setFormTip('✓ 已添加并启用：' + mid, null);
   renderStatus(await pywebview.api.get_status());
 }
 
@@ -2988,6 +3472,7 @@ input.addEventListener('keydown', e => {
 });
 input.addEventListener('input', () => {
   input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+  recalcCtx();   // 边输入边更新上下文环：粘贴长论文时立刻能看到占用
 });
 // 点击空白处 / Esc 关闭弹出的菜单
 document.addEventListener('click', e => {
@@ -3106,6 +3591,9 @@ function syncBlurUI(px){
 async function setGlassBlur(px){
   px = Math.max(0, Math.min(28, Number(px) || 0));
   applyGlassBlur(px); syncBlurUI(px);
+  window._settings = window._settings || {};
+  window._settings.glass_blur = px;
+  applyGlassComps();   // 按组件的磨砂度跟着变
   try { await pywebview.api.set_glass_blur(px); } catch(e){}
 }
 
@@ -3172,10 +3660,12 @@ async function setMainOpacity(v){
   try { await pywebview.api.set_region_opacity('main', val); } catch(e){}
 }
 async function setSideGlass(on){
+  if(document.documentElement.getAttribute('data-glass') !== 'on') return;
   applySideGlass(on);
   try { await pywebview.api.set_region_glass('side', on ? '1' : '0'); } catch(e){}
 }
 async function setMainGlass(on){
+  if(document.documentElement.getAttribute('data-glass') !== 'on') return;
   applyMainGlass(on);
   try { await pywebview.api.set_region_glass('main', on ? '1' : '0'); } catch(e){}
 }
@@ -3192,6 +3682,19 @@ function applyRegionSettings(s){
   if(sg) sg.setAttribute('aria-checked', s.side_glass !== false ? 'true' : 'false');
   const mg = document.getElementById('s_main_glass');
   if(mg) mg.setAttribute('aria-checked', s.main_glass !== false ? 'true' : 'false');
+}
+/* 玻璃总开关联动：关 → 区域玻璃开关与浓度滑块禁用，并强制 100% 纯色；开 → 恢复已存浓度 */
+function syncRegionEnabled(){
+  const glassOn = document.documentElement.getAttribute('data-glass') === 'on';
+  const pairs = [['s_side_glass', true], ['s_main_glass', true], ['s_side_op', false], ['s_main_op', false]];
+  pairs.forEach(([id, isSw]) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(isSw){ el.classList.toggle('dim', !glassOn); }
+    else { el.disabled = !glassOn; el.classList.toggle('dim', !glassOn); }
+  });
+  if(glassOn){ refreshRegionOpacity(); }
+  else { applySideOpacity(1); applyMainOpacity(1); }
 }
 
 /* ---------- 背景画面焦点（长图只看某一部分） ---------- */
@@ -3259,6 +3762,14 @@ window.addEventListener('DOMContentLoaded', () => {
       applyTheme(th);
       try { localStorage.setItem('qd-theme', th); } catch(e){}
       applyGlass(s.glass_enabled !== false, s.glass_refract !== false);
+      // 玻璃 / 磨砂按组件独立：启动即按后端清单应用
+      window._settings = window._settings || {};
+      window._settings.glass = s.glass_enabled !== false;
+      window._settings.glass_blur = s.glass_blur;
+      window._settings.glass_sat = s.glass_sat;
+      window._settings.glass_components = Array.isArray(s.glass_components) ? s.glass_components : Object.keys(GLASS_COMPS);
+      window._settings.frost_components = Array.isArray(s.frost_components) ? s.frost_components : window._settings.glass_components.slice();
+      applyGlassComps();
       // 首帧对齐后端玻璃设置：确保原生标题栏深浅色已应用
       try { await pywebview.api.set_glass(s.glass_enabled !== false); } catch(e){}
       loadBackground();    // 加载已保存/默认背景图（窗口不透明 + 静态图，玻璃只模糊这张图）
@@ -3270,6 +3781,7 @@ window.addEventListener('DOMContentLoaded', () => {
         applyBgPos(s.bg_pos_x, s.bg_pos_y); syncPosUI(s.bg_pos_x, s.bg_pos_y);
       }
       applyWorkbench(s);   // 按开关显示/隐藏侧栏工作台按钮
+      try { await refreshPluginFlags(); } catch(e){}   // 插件安装状态扫描（工作台入口 / 编程面板）
       applyRegionSettings(s);  // 任务栏 / 聊天区 各自的玻璃与浓度
       refreshModelName(s); // 输入框右下角模型名 + 是否已配置
       if(!s.configured) showSettings();
