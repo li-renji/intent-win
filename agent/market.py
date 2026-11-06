@@ -22,7 +22,9 @@ KINDS = {
     "plugin": {"dir": PLUGINS_DIR, "ext": ".qdplugin"},
 }
 
-_HEAD_KEYS = ("name", "version", "desc", "trigger", "action", "run", "params", "id")
+_HEAD_KEYS = ("name", "version", "desc", "trigger", "action", "run", "params", "id",
+              # companion 插件（人格类扩展，如「阿觉」）的声明字段
+              "kind", "data_dir", "entry", "ui")
 _MAX_BYTES = 2 * 1024 * 1024
 _TIMEOUT = 20
 

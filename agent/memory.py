@@ -20,7 +20,23 @@
    宁缺毋滥，用户也能在界面里随时删。
 
 存储：``memories/memory.json``，条目结构：
-``{id, kind, text, tags, created_at, updated_at, hits, source}``
+``{id, kind, text, tags, created_at, updated_at, hits, source, layer}``
+
+分层（借鉴 TencentDB Agent Memory 的 L1/L2/L3 抽象，纯本地实现）
+----------------------------------------------------------------
+- layer=1（L1 Atom）：原子事实/偏好，由 auto_capture 或显式 add 写入；
+  对应 TencentDB 的 L1（从对话抽取的事实、偏好、约束）。
+- layer=2（L2 Scenario）：任务 / 项目级场景卡，由 synthesize() 把同 tag
+  的多条 L1 聚合而成；对应 TencentDB 的 L2（围绕场景组织的知识块）。
+- layer=3（L3 Persona）：长期画像，由高频命中 / 强偏好演化而来；
+  对应 TencentDB 的 L3（长期用户画像）。
+
+由此形成 L1→L2→L3 的生长骨架：原子事实沉淀为场景，场景稳定后
+收敛为画像。recall 时按 L3→L2→L1 的优先级注入，保持字符预算可控。
+
+召回排序采用 RRF（Reciprocal Rank Fusion，k=60）：将“关键词匹配”
+与“bigram 语义相似度”两路独立排序后做倒数排名融合，消除词频饱和
+导致的长尾压制——记忆量越大越明显（见 TencentDB 的 search-utils.ts）。
 """
 
 import json
@@ -35,6 +51,8 @@ MAX_ENTRIES = 2000          # 记忆条数上限（防无限膨胀）
 MAX_TEXT = 400              # 单条记忆长度上限
 SIM_THRESHOLD = 0.72        # bigram 相似度阈值：超过即视为同一条，合并而非新增
 RECALL_MAX_CHARS = 700      # 单轮回注的记忆总字符预算
+RRF_K = 60                  # RRF 融合常数（与 TencentDB 一致，越高越平滑）
+SYNTHESIZE_TAG_MIN = 3      # L1 聚合为 L2 所需的最小同 tag 命中次数
 
 KIND_LABEL = {
     "profile": "档案",
@@ -187,12 +205,16 @@ class MemoryStore:
 
     # ---------- 增删改查 ----------
 
-    def add(self, text, kind="fact", tags=None, source="manual"):
-        """写入一条记忆；与已有条目过于相似则合并。返回 (ok, 说明)。"""
+    def add(self, text, kind="fact", tags=None, source="manual", layer=1):
+        """写入一条记忆；与已有条目过于相似则合并。返回 (ok, 说明)。
+
+        layer：1=L1 原子事实 / 2=L2 场景卡 / 3=L3 画像（默认 1）。
+        """
         text = " ".join(str(text or "").split())[:MAX_TEXT]
         if not text:
             return False, "记忆内容为空"
         kind = kind if kind in KIND_LABEL else "fact"
+        layer = layer if layer in (1, 2, 3) else 1
         tags = [str(t).strip() for t in (tags or []) if str(t).strip()][:8]
         now = int(time.time())
         with self._lock:
@@ -209,6 +231,8 @@ class MemoryStore:
                 it["updated_at"] = now
                 if kind != it.get("kind"):
                     it["kind"] = kind
+                if layer > int(it.get("layer", 1)):   # 仅允许向上聚合层级
+                    it["layer"] = layer
                 if tags:
                     merged = list(dict.fromkeys(list(it.get("tags") or []) + tags))
                     it["tags"] = merged[:8]
@@ -216,7 +240,8 @@ class MemoryStore:
                 return True, "已合并到已有记忆（相似度 %.0f%%）" % (best_sim * 100)
             item = {"id": "m_%d_%d" % (now, len(items) + 1), "kind": kind,
                     "text": text, "tags": tags, "created_at": now,
-                    "updated_at": now, "hits": 1, "source": source}
+                    "updated_at": now, "hits": 1, "source": source,
+                    "layer": layer}
             items.append(item)
             if len(items) > MAX_ENTRIES:      # 超量丢最旧
                 items = items[-MAX_ENTRIES:]
@@ -243,14 +268,31 @@ class MemoryStore:
             self._save(rest)
             return n
 
-    def list(self, kind=None, limit=200):
+    def list(self, kind=None, layer=None, limit=200):
         with self._lock:
             items = self._load()
         if kind:
             items = [i for i in items if i.get("kind") == kind]
+        if layer is not None:
+            items = [i for i in items if int(i.get("layer", 1)) == int(layer)]
         items.sort(key=lambda i: (int(i.get("updated_at", 0)), int(i.get("created_at", 0))),
                    reverse=True)
         return items[:max(1, min(int(limit or 200), 1000))]
+
+    def l3_view(self, limit=20, max_chars=500):
+        """取出全部 L3 画像条目，拼成可注入 system prompt 的文本。无则返回空串。"""
+        items = self.list(layer=3, limit=limit)
+        if not items:
+            return ""
+        lines = ["[用户画像 L3]"]
+        used = 0
+        for i in items:
+            t = str(i.get("text", ""))
+            if used + len(t) > max_chars:
+                break
+            lines.append("- " + t)
+            used += len(t)
+        return "\n".join(lines)
 
     # ---------- 检索 ----------
 
@@ -279,21 +321,50 @@ class MemoryStore:
         scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
         return [it for _s, _t, it in scored[:max(1, min(int(limit or 20), 100))]]
 
+    # ---------- RRF 融合 ----------
+
+    @staticmethod
+    def _rrf_merge(ranked_lists, k=RRF_K, top=None):
+        """倒数排名融合：把多路排序结果融成一路，消除词频饱和。
+
+        每个 item 的 RRF 分 = Σ 1/(k + rank + 1)；出现在多路的分数累加。
+        返回 [(rrf_score, item), ...] 按分降序。
+        """
+        pool = {}
+        for rlist in ranked_lists:
+            for rank, it in enumerate(rlist):
+                uid = it.get("id") or id(it)
+                sc = 1.0 / (k + rank + 1)
+                if uid in pool:
+                    pool[uid][0] += sc
+                else:
+                    pool[uid] = [sc, it]
+        merged = sorted(pool.values(), key=lambda x: x[0], reverse=True)
+        if top:
+            merged = merged[:top]
+        return merged
+
     def recall(self, query, limit=6, max_chars=RECALL_MAX_CHARS):
         """按当前提问召回最相关的记忆（用于回注 system prompt）。
 
-        只回少量高价值内容（档案/偏好权重更高），并受总字符预算约束。
+        两路独立排序后用 RRF 融合：
+          - 路 A：关键词/别名命中（原有的 overlap + tag + 别名桥接）
+          - 路 B：bigram 语义相似度（Jaccard，抗错别字 / 同义改写）
+        再按 layer 优先级（L3→L2→L1）微调，最后受字符预算约束。
         """
         q_terms = _expand_query(query)
         if not q_terms:
             return []
-        # 「你还记得我吗」这类提问：即使关键词没重合，也召回最近的记忆
+        # 「你还记得我吗」这类提问：即使关键词没重合，也召回全部候选
         global_hit = bool(_RECALL_ANY.search(str(query or "")))
         kind_bonus = {"profile": 2.0, "preference": 1.5, "task": 0.6, "fact": 0.8}
-        scored = []
+        now = int(time.time())
         with self._lock:
             items = self._load()
-        now = int(time.time())
+
+        # 路 A：关键词打分（与现网逻辑一致）
+        a_ranked, b_ranked = [], []
+        a_scored = []
         for it in items:
             text = str(it.get("text", ""))
             t_terms = _terms(text)
@@ -309,16 +380,143 @@ class MemoryStore:
             score += min(float(it.get("hits", 1)), 5) * 0.02
             if score <= 0.12:
                 continue
-            scored.append((score, it))
-        scored.sort(key=lambda x: x[0], reverse=True)
+            a_scored.append((score, it))
+        a_scored.sort(key=lambda x: x[0], reverse=True)
+        a_ranked = [it for _s, it in a_scored[:max(1, min(int(limit * 3 or 18), 60))]]  # 放大候选集供融合
+
+        # 路 B：bigram 语义相似度（不依赖关键词是否重叠，覆盖改写 / 错别字）
+        if not global_hit:
+            b_scored = []
+            for it in items:
+                sim = _similar(query, str(it.get("text", "")))
+                if sim < 0.18:
+                    continue
+                b_scored.append((sim, it))
+            b_scored.sort(key=lambda x: x[0], reverse=True)
+            b_ranked = [it for _s, it in b_scored[:max(1, min(int(limit * 3 or 18), 60))]]
+
+        if not a_ranked and not b_ranked:
+            return []
+
+        fused = self._rrf_merge([r for r in (a_ranked, b_ranked) if r], top=max(1, min(int(limit * 2), 20)))
+
+        # layer 优先级微调：L3→L2→L1 整体前置（高层记忆更值得回注）
+        def _layer_key(x):
+            it = x[1]
+            lyr = int(it.get("layer", 1))
+            return (2 if lyr >= 3 else 1 if lyr == 2 else 0, x[0])
+        fused.sort(key=_layer_key, reverse=True)
+
         picked, used = [], 0
-        for _s, it in scored[:max(1, min(int(limit or 6), 20))]:
+        for _rrf, it in fused:
             text = str(it.get("text", ""))
             if used + len(text) > max_chars:
                 continue
             picked.append(it)
             used += len(text)
+            if len(picked) >= limit:
+                break
         return picked
+
+    def synthesize(self, min_hits=SYNTHESIZE_TAG_MIN):
+        """L1→L2 聚合：把同 tag、高频命中的多条 L1 自动提炼为一条 L2 场景卡。
+
+        设计意图（对应 TencentDB 的 L2 Scenario）：原子事实沉淀成场景知识块，
+        下次相关任务直接加载场景而非逐条事实。幂等：已存在的同 tag L2 会跳过。
+        返回本次新生成的 L2 条目数。
+        """
+        with self._lock:
+            items = self._load()
+            l1 = [it for it in items if int(it.get("layer", 1)) == 1 and it.get("tags")]
+            by_tag = {}
+            for it in l1:
+                for tg in it.get("tags", []):
+                    by_tag.setdefault(tg, []).append(it)
+            # 已存在的 L2 覆盖的源记忆集合（跨调用去重，避免重复造卡）
+            existing_heads = set()
+            for it in items:
+                if int(it.get("layer", 1)) == 2 and it.get("sources"):
+                    existing_heads.add(frozenset(it["sources"]))
+            seen_heads = set()      # 同一次调用内去重
+            now = int(time.time())
+            made = 0
+            for tg, group in by_tag.items():
+                if len(group) < min_hits:
+                    continue
+                # 命中频次高 / 更新近的优先汇总
+                group = sorted(group, key=lambda g: (int(g.get("hits", 1)),
+                                                    int(g.get("updated_at", 0))),
+                             reverse=True)
+                head = group[:5]
+                head_ids = frozenset(h.get("id") for h in head)
+                # 已被已有 L2（子集）覆盖，或本次调用已汇过，跳过
+                if head_ids in seen_heads or any(head_ids <= e for e in existing_heads):
+                    continue
+                seen_heads.add(head_ids)
+                existing_heads.add(head_ids)
+                summary = "；".join(str(g.get("text", ""))[:80] for g in head)
+                item = {"id": "m_%d_l2_%d" % (now, made + 1),
+                        "kind": "fact", "text": "[场景:%s] %s" % (tg, summary),
+                        "tags": [tg], "created_at": now, "updated_at": now,
+                        "hits": sum(int(g.get("hits", 1)) for g in head),
+                        "source": "synthesized", "layer": 2,
+                        "sources": list(head_ids)}
+                items.append(item)
+                made += 1
+            if made:
+                self._save(items)
+            return made
+
+    def synthesize_l3(self, min_hits=4):
+        """L2→L3 收敛：把高频命中 / 强偏好的 L1/L2 提炼为「用户画像」（L3）。
+
+        设计意图（对应 TencentDB 的 L3 Persona）：原子事实沉淀成场景（L2），
+        场景稳定后再收敛为「你是谁」的画像（L3）。这是阿觉「通过记忆认识你」
+        的关键一层。
+
+        实现（纯本地、无 LLM 依赖、幂等）：
+          - 候选：L2 全部 + L1 中 hits>=min_hits 的强记忆；
+          - 按主导 tag 聚类，每组聚合前若干条成一条画像陈述；
+          - 经 add() 写入 layer=3（相似度>=0.72 自动合并，不重复造像）。
+
+        返回本次新生成的 L3 条数。
+        """
+        with self._lock:
+            items = self._load()
+            cands = [it for it in items
+                     if int(it.get("layer", 1)) >= 2
+                     or int(it.get("hits", 1)) >= min_hits]
+            if not cands:
+                return 0
+            # 按主导 tag 聚类
+            by_tag = {}
+            for it in cands:
+                tags = it.get("tags") or []
+                key = tags[0] if tags else "_general"
+                by_tag.setdefault(key, []).append(it)
+            # 已有 L3 的文本集合（去重，避免重复造像）
+            existing = set(str(i.get("text", "")) for i in items
+                           if int(i.get("layer", 1)) == 3)
+            now = int(time.time())
+            made = 0
+            for tg, group in by_tag.items():
+                if len(group) < 2 and tg != "_general":
+                    continue
+                group = sorted(group, key=lambda g: (int(g.get("hits", 1)),
+                                                    int(g.get("updated_at", 0))),
+                              reverse=True)
+                head = group[:6]
+                summary = "；".join(str(g.get("text", ""))[:80] for g in head)
+                text = ("[画像:%s] %s" % (tg, summary))[:MAX_TEXT]
+                if text in existing:
+                    continue
+                # 经 add 写入 L3：相似则合并，不重复
+                ok, _ = self.add(text, kind="profile", tags=[tg],
+                                 source="synthesized", layer=3)
+                if ok:
+                    made += 1
+                    existing.add(text)
+            return made
 
     def inject(self, query, limit=6, max_chars=RECALL_MAX_CHARS):
         """生成注入 system prompt 的记忆文本（无命中返回空串）。"""
@@ -328,16 +526,19 @@ class MemoryStore:
         lines = []
         for it in picked:
             label = KIND_LABEL.get(it.get("kind"), "事实")
-            lines.append("- [%s] %s" % (label, str(it.get("text", ""))[:MAX_TEXT]))
+            lyr = int(it.get("layer", 1))
+            tag = (" L%d" % lyr) if lyr >= 2 else ""
+            lines.append("- [%s%s] %s" % (label, tag, str(it.get("text", ""))[:MAX_TEXT]))
         return "长期记忆（与本次提问相关的已知信息）：\n" + "\n".join(lines)
 
     def stats(self):
         items = self._load()
         by_kind = {}
+        by_layer = {1: 0, 2: 0, 3: 0}
         for it in items:
-            k = it.get("kind", "fact")
-            by_kind[k] = by_kind.get(k, 0) + 1
-        return {"count": len(items), "by_kind": by_kind,
+            by_kind[it.get("kind", "fact")] = by_kind.get(it.get("kind", "fact"), 0) + 1
+            by_layer[int(it.get("layer", 1))] = by_layer.get(int(it.get("layer", 1)), 0) + 1
+        return {"count": len(items), "by_kind": by_kind, "by_layer": by_layer,
                 "path": self.path,
                 "chars": sum(len(str(i.get("text", ""))) for i in items)}
 

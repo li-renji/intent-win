@@ -31,11 +31,14 @@ class WebView2Engine:
         sess = eng.new_tab()              # 新标签页
     """
 
-    def __init__(self, port=9555, profile_dir=None, headless=False):
+    def __init__(self, port=9555, profile_dir=None, headless=False, proxy="direct"):
         self.port = port
         self.profile_dir = profile_dir or os.path.join(
             os.environ.get("TEMP", "."), "mybrowser_profile")
         self.headless = headless
+        # 代理模式：direct=直连（绕过环境/系统里多半没在跑的本地开发代理，
+        #   否则百度等页面会永远转圈）；system=用系统代理；其它字符串=自定义 --proxy-server
+        self.proxy = proxy
         self.client = None          # CDPClient（浏览器级）
         self._lock = threading.RLock()
         self._ready = threading.Event()
@@ -45,22 +48,53 @@ class WebView2Engine:
 
     # ---------------- 环境准备 ----------------
 
-    def prepare_env(self):
-        """在创建 WebView2 控件之前设置环境变量。
+    def _core_args(self):
+        """除「端口 / 用户数据目录」之外的浏览器启动参数（两类场景共用）。
 
-        必须在 UI 线程创建控件之前调用，否则 WebView2 进程已用旧参数启动。
+        注意：--remote-debugging-port 与 --user-data-dir 由调用方单独加，
+        这里不要重复，否则 Chromium 会出现两份同义参数、行为不可预期。
         """
-        os.makedirs(self.profile_dir, exist_ok=True)
-        args = ["--remote-debugging-port=%d" % self.port]
+        args = ["--disable-features=Translate,OptimizationHints",
+                "--no-first-run", "--no-default-browser-check",
+                # 允许我们自己写的扩展/自动化脚本在页面上跑
+                "--allow-file-access-from-files"]
+        # 代理：默认直连，避开环境里那个多半没在跑的本地开发代理 127.0.0.1:xxxx
+        if self.proxy == "direct":
+            args.append("--no-proxy-server")
+        elif self.proxy and self.proxy != "system":
+            args.append("--proxy-server=" + self.proxy)
         if self.headless:
             args.append("--headless=new")
-        args.append("--disable-features=Translate,OptimizationHints")
-        args.append("--no-first-run")
-        args.append("--no-default-browser-check")
-        # 允许我们自己写的扩展/自动化脚本在页面上跑
-        args.append("--allow-file-access-from-files")
+        return args
+
+    def prepare_env(self):
+        """【仅独立 Edge 模式用】把启动参数写成全局环境变量。
+
+        必须仅在「自己拉起 msedge.exe」的独立渲染进程场景调用 —— 因为
+        子进程（msedge）只读环境变量、不读我们构造的 CoreWebView2Environment。
+
+        ⚠️ 绝不能在「自研窗口（UI）模式」调用：它会把 WEBVIEW2_USER_DATA_FOLDER
+        与调试端口写成**进程级全局变量**，污染同进程里的主聊天窗口（pywebview）
+        的 WebView2，导致两个 WebView2 抢同一个 user-data-dir / 调试端口、
+        内核初始化失败 → 浏览器纯白。UI 模式请改用 build_environment()。
+        """
+        os.makedirs(self.profile_dir, exist_ok=True)
+        args = ["--remote-debugging-port=%d" % self.port] + self._core_args()
         os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = " ".join(args)
         os.environ["WEBVIEW2_USER_DATA_FOLDER"] = self.profile_dir
+
+    def build_environment(self):
+        """【UI / 自研窗口模式专用】构建带 CDP 端口的 CoreWebView2Environment。
+
+        端口与 user-data-dir 由 host.create_environment 单独注入，**不写全局
+        环境变量**，从而与同进程的主聊天窗口 WebView2 彻底隔离 —— 这是修掉
+        「浏览器纯白」的关键：两个 WebView2 不再争抢 user-data-dir / 调试端口。
+        """
+        os.makedirs(self.profile_dir, exist_ok=True)
+        from ..ui import host
+        return host.create_environment(
+            self.port, user_data_folder=self.profile_dir,
+            extra_args=self._core_args())
 
     def wait_cdp(self, timeout=30.0):
         """等 CDP 调试端口就绪，返回 /json/version 的内容。

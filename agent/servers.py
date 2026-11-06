@@ -8,6 +8,7 @@
 import asyncio
 import json
 import os
+import queue
 import time
 import urllib.parse
 
@@ -17,6 +18,56 @@ from .loop import AgentLoop
 from .prompts import build_system_prompt
 
 _LOOPBACK = ("127.0.0.1", "::1")
+
+# companion（如阿觉）走 agent 模式时，只给它这组「安全工具」：
+# 联网搜索 / 浏览器读取 / 屏幕读取 / 技能列表 / 提醒。
+# 绝不暴露 fs、code、organize 等会改本机文件或执行代码的强力工具——
+# 一个生活助手桌宠不该拥有这些能力。
+_COMPANION_TOOLS = ("web", "browser", "screen", "skills", "remind")
+
+
+class _ToolSubset:
+    """ToolBus 的只读视图：只暴露 allow 里的工具，其余一律拒绝。
+
+    用于给 companion（阿觉）一套受限的工具集，避免它拿到 fs/code 等危险工具。
+    """
+
+    def __init__(self, bus, allow):
+        self._bus = bus
+        self._allow = set(allow)
+
+    def enabled(self):
+        return [n for n in self._bus.enabled() if n in self._allow]
+
+    def openai_schemas(self):
+        out = []
+        for s in self._bus.openai_schemas():
+            n = (s.get("function") or {}).get("name")
+            if n in self._allow:
+                out.append(s)
+        return out
+
+    def invoke(self, name, args):
+        if name not in self._allow:
+            return False, "companion 不可使用该工具：%s" % name
+        return self._bus.invoke(name, args)
+
+
+def _run_companion_agent(ctx, base, model, key, messages):
+    """companion（阿觉）走 AgentLoop：保留其自带的人格 system prompt，
+    但只给它一组安全工具（web/browser/screen/skills/remind）。
+
+    返回最终正文；过程中工具调用、错误都由 AgentLoop 内部处理。
+    """
+    safe = _ToolSubset(ctx.bus, _COMPANION_TOOLS)
+    loop = AgentLoop(ctx.cfg, safe, ctx.browser, ctx.history)
+    final = ""
+    for kind, payload in loop.run(base, model, key, messages):
+        if kind == "done":
+            final = payload.get("content", "")
+        elif kind == "error" and not final:
+            final = "[错误] " + str(payload)
+    return final or ""
 
 
 class Context:
@@ -52,6 +103,14 @@ async def serve_6800(ctx):
                 cmd = line.decode("utf-8", "replace").strip()
                 if not cmd:
                     continue
+                head, _, rest = cmd.partition(" ")
+                if head.upper() == "CHATS":
+                    # 流式对话：边生成边推，结束后关闭连接（客户端按 EOF 判定结束）
+                    if not rest:
+                        writer.write(b"usage: CHATS <message>\n")
+                        continue
+                    await chat_stream(ctx, writer, rest)
+                    return
                 reply = await _dispatch_6800(ctx, cmd)
                 writer.write((reply + "\n").encode("utf-8"))
                 await writer.drain()
@@ -139,6 +198,73 @@ async def chat_once(ctx, user_text, scenario="chat"):
     await asyncio.to_thread(_run)
     ctx.history.add_turn(user_text, final, tool_names)
     return final
+
+
+async def chat_stream(ctx, writer, user_text, scenario="chat"):
+    """流式对话：把 AgentLoop 产出的 text/tool 事件实时推给 6800 客户端，
+    结束后由调用方关闭连接（客户端按 EOF 判定结束）。
+
+    与 chat_once 共用 system/facts 注入与历史压缩，只是把「整段返回」
+    改成「逐 token 推送」，让终端能即时显示首字。
+    """
+    base, model, key = ctx.endpoint()
+    if not base:
+        writer.write("LLM 未配置（检查 配置.qdai 的 base_url / api_key）\n".encode("utf-8"))
+        return
+    system = build_system_prompt(
+        ctx.bus.enabled(), scenario=scenario,
+        skills_dir=os.path.join(ctx.cfg["project_root"], "skills"))
+    facts = ctx.history.inject()
+    messages = [{"role": "system", "content": (system + ("\n" + facts if facts else ""))},
+                {"role": "user", "content": user_text}]
+
+    if not ctx.cfg.get("agent_enabled", True):
+        ok, gen = await asyncio.to_thread(llm.chat, base, model, key, messages, True)
+        if not ok:
+            writer.write(("[错误] " + gen + "\n").encode("utf-8"))
+            return
+        try:
+            for tok in gen:
+                writer.write(tok.encode("utf-8"))
+                await writer.drain()
+        except (ConnectionError, BrokenPipeError):
+            return
+        return
+
+    # agent 模式：跨线程把 AgentLoop 事件转成网络写入
+    q: "queue.Queue" = queue.Queue()
+
+    def _run():
+        try:
+            for kind, payload in ctx.agent.run(base, model, key, messages):
+                q.put((kind, payload))
+        except Exception as e:  # 线程内异常不能上抛到事件循环，转成事件
+            q.put(("error", str(e)))
+        q.put(None)
+
+    async def pump():
+        while True:
+            item = await asyncio.to_thread(q.get)
+            if item is None:
+                break
+            kind, payload = item
+            try:
+                if kind == "text":
+                    writer.write(payload.encode("utf-8"))
+                    await writer.drain()
+                elif kind == "tool_start":
+                    name = payload.get("name") if isinstance(payload, dict) else payload
+                    writer.write(("\n[调用工具: %s]\n" % name).encode("utf-8"))
+                    await writer.drain()
+                elif kind == "notice":
+                    writer.write(("\n[%s]\n" % payload).encode("utf-8"))
+                    await writer.drain()
+                # thinking 等其它事件在终端不展示，避免输出噪杂
+            except (ConnectionError, BrokenPipeError):
+                return
+
+    await asyncio.gather(asyncio.to_thread(_run), pump())
+
 
 
 # ---------- 6801 ----------
@@ -231,6 +357,23 @@ async def _chat_completions(ctx, writer, body):
     base, model, key = ctx.endpoint()
     if not base:
         return await _http(writer, 502, {"error": "上游未配置"})
+
+    # companion（如阿觉）请求走 agent 模式：可调用联网/浏览器等安全工具。
+    # 注意：agent 模式下走 AgentLoop（带工具），非 agent 才是裸透传——
+    # 裸透传给模型的是「训练知识」，没有实时联网能力。
+    if req.get("agent"):
+        try:
+            final = await asyncio.to_thread(
+                _run_companion_agent, ctx, base, req.get("model", model), key, messages)
+        except Exception as e:
+            final = "[错误] " + str(e)
+        if not final:
+            final = "[宿主没有返回内容，阿觉一时说不上话。]"
+        cid = "chatcmpl-qd-%d" % int(time.time())
+        return await _http(writer, 200, {
+            "id": cid, "object": "chat.completion",
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": final},
+                         "finish_reason": "stop"}]})
 
     stream = bool(req.get("stream"))
     # 对外 API 透传给模型；内部工具调用不经 6802（那是 6801 的职责）

@@ -93,7 +93,13 @@ def main():
     eng = WebView2Engine(port=PORT, headless=True)
     eng.prepare_env()
     profile = os.path.join(os.environ.get("TEMP", "."), "mybrowser_ctrl_profile")
-    edge = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+    try:
+        from .runtime_paths import browser_exe
+    except ImportError:
+        from runtime_paths import browser_exe
+    edge = browser_exe()
+    if not edge:
+        raise RuntimeError("未找到浏览器内核：检查 runtime/chromium/chrome.exe")
     proc = subprocess.Popen([
         edge, "--remote-debugging-port=%d" % PORT,
         "--user-data-dir=%s" % profile,

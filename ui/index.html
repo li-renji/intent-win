@@ -40,7 +40,8 @@
     /* 间距：组内间距必须小于组间距，靠这一条保证"同组靠近" */
     --gap-in:8px;               /* 组内 */
     --gap-out:22px;             /* 组间（> 组内） */
-    --row-py:10px;              /* 每行上下留空 → 呼吸感 */
+    --row-py:8px;               /* 每行上下留空 → 呼吸感 */
+    --row-py-conv:4px;          /* 会话项专用：任务栏要能塞下更多对话，比导航更紧 */
     --row-px:12px;              /* 可点击胶囊格的左右留空：只做上下会显得内容贴边，很丑 */
     --rail:14px;                /* 标题 / 导航 / 页脚 共用的水平对齐基准 */
     --ic-slot:20px;             /* 图标统一槽位（文字左缘 = rail + 槽位 + gap） */
@@ -57,7 +58,8 @@
     /* 派生表面 / 叠层（主题翻转时一起变） */
     --side-bg:linear-gradient(180deg,#12161f 0%,#0e1119 100%);
     --topbar-bg:rgba(13,16,23,.55);
-    --modal-bg:rgba(8,10,15,.96);
+    --modal-bg:rgba(10,13,19,.90);      /* 深色弹窗：半透黑玻璃，背景透下去（配合磨砂） */
+    --mask-bg:rgba(6,8,12,.62);          /* 深色遮罩：压暗背景（用户要求：深色要把背景压暗） */
     --ctxbar-bg:rgba(13,16,23,.82);
     --track-bg:rgba(255,255,255,.06);
     --gauge-empty:rgba(255,255,255,.22);   /* 上下文环：剩余可用（浅=白） */
@@ -107,8 +109,8 @@
     /* 背景可读性罩：透明度由「背景可见度」滑块控制（--bg-tint-a / -on）。
        值越小，图片越清晰可见；玻璃开启时仅稍加重，不再盖死整张图。 */
     --bg-tint-rgb:8,10,16;
-    --bg-tint-a:.38;        /* 玻璃关闭：轻度压暗，图片清晰可见 */
-    --bg-tint-a-on:.52;     /* 玻璃开启：稍重，仍保留图片层次 */
+    --bg-tint-a:.48;        /* 深色：加重压暗，背景更沉（用户要求深色要把背景压暗） */
+    --bg-tint-a-on:.60;     /* 玻璃开启：更沉，仍保留图片层次 */
     color-scheme:dark;   /* 让 WebView2 原生滚动条/控件跟随深色 */
   }
   /* ===== 浅色主题 ===== */
@@ -117,17 +119,17 @@
     --sh-1:0 0 0 1px rgba(15,23,42,.045), 0 1px 2px rgba(15,23,42,.05), 0 4px 10px rgba(15,23,42,.055);
     --sh-2:0 0 0 1px rgba(15,23,42,.055), 0 2px 5px rgba(15,23,42,.06), 0 8px 20px rgba(15,23,42,.07), 0 18px 40px rgba(15,23,42,.07);
     --sh-3:0 0 0 1px rgba(15,23,42,.06), 0 2px 6px rgba(15,23,42,.07), 0 14px 30px rgba(15,23,42,.09), 0 32px 64px rgba(15,23,42,.10);
-    --bg-app:#eef1f6;
+    --bg-app:#f5f8fc;
     --bg-base:#ffffff;
     --bg-panel:#ffffff;
-    --bg-elev:#f4f6fb;
-    --bg-input:#f3f5fa;
-    --border:rgba(15,23,42,.10);
-    --border-strong:rgba(15,23,42,.18);
-    --txt:#1c2533;
-    --sub:#5b6677;
-    --ter:#8b94a4;
-    --ai-bg:#f1f4f9;
+    --bg-elev:#eef2f8;
+    --bg-input:#e9eef5;
+    --border:rgba(15,23,42,.12);
+    --border-strong:rgba(15,23,42,.20);
+    --txt:#0e1626;          /* 浅色正文：近黑，极高对比，绝不发生“字发虚看不清” */
+    --sub:#3a4658;          /* 次要文字：深灰蓝，浅底上清晰可读 */
+    --ter:#566273;          /* 三级文字：不再用过浅灰，避免发虚 */
+    --ai-bg:#eaeff6;
     --danger:#ef4444;
     --warn:#d97706;
     --ok:#059669;
@@ -136,7 +138,8 @@
     --shadow-lg:0 30px 70px rgba(15,23,42,.16);
     --side-bg:linear-gradient(180deg,#ffffff 0%,#f2f5fa 100%);
     --topbar-bg:rgba(255,255,255,.72);
-    --modal-bg:rgba(255,255,255,.96);
+    --modal-bg:rgba(255,255,255,.74);   /* 浅色弹窗：半透明白玻璃 —— 背景透下去 + 磨砂，深色字压亮底，清晰可读 */
+    --mask-bg:rgba(255,255,255,.58);    /* 浅色遮罩：白色提亮，绝不压暗背景（浅色就该是亮的） */
     --ctxbar-bg:rgba(255,255,255,.78);
     --track-bg:rgba(15,23,42,.07);
     --gauge-empty:rgba(15,23,42,.14);      /* 上下文环：剩余可用 */
@@ -176,9 +179,9 @@
     --main-op:.70;
     --main-op-def:.70;
     --bg:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjgwIiBoZWlnaHQ9IjgwMCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjZTlmMWZmIi8+PHN0b3Agb2Zmc2V0PSIuNSIgc3RvcC1jb2xvcj0iI2Y1ZWZmYiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2U2ZjdmMyIvPjwvbGluZWFyR3JhZGllbnQ+PGZpbHRlciBpZD0iYiI+PGZlR2F1c3NpYW5CbHVyIHN0ZERldmlhdGlvbj0iNjAiLz48L2ZpbHRlcj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEyODAiIGhlaWdodD0iODAwIiBmaWxsPSJ1cmwoI2cpIi8+PGcgZmlsdGVyPSJ1cmwoI2IpIiBvcGFjaXR5PSIuNTUiPjxjaXJjbGUgY3g9IjI2MCIgY3k9IjIyMCIgcj0iMTgwIiBmaWxsPSIjOWJiOGZmIi8+PGNpcmNsZSBjeD0iMTA0MCIgY3k9IjI4MCIgcj0iMjEwIiBmaWxsPSIjZDZiM2ZmIi8+PGNpcmNsZSBjeD0iNjkwIiBjeT0iNjgwIiByPSIyMDAiIGZpbGw9IiNhN2U4ZTAiLz48Y2lyY2xlIGN4PSIxMTEwIiBjeT0iNzEwIiByPSIxNTAiIGZpbGw9IiNmZmMyZTAiLz48L2c+PC9zdmc+");
-    --bg-tint-rgb:245,247,250;
-    --bg-tint-a:.30;
-    --bg-tint-a-on:.46;
+    --bg-tint-rgb:255,255,255;   /* 浅色：纯白罩 —— 背景整体提亮（深色模式用 8,10,16 压暗） */
+    --bg-tint-a:.44;        /* 浅色：加重白罩，背景更干净明亮（用户要求浅色要提亮） */
+    --bg-tint-a-on:.58;
     color-scheme:light;
   }
   *{margin:0;padding:0;box-sizing:border-box;
@@ -198,7 +201,7 @@
   /* ===== 可替换背景图层：铺满整窗、置于最底层（在 DOM 中先于 .glass-sheet 绘制）===== */
   .bg{position:fixed;inset:0;z-index:0;pointer-events:none;
     background-image:var(--bg);background-size:cover;
-    background-position:var(--bg-pos,50% 50%);background-color:#0b0e14}
+    background-position:var(--bg-pos,50% 50%);background-color:var(--bg-app)}
   /* 可读性罩：压暗/提亮背景，保证任意图片上文字清晰（纯色叠加，无 blend、零开销）。
      透明度由 --bg-tint-a（-on 为玻璃开启时）控制 = 即「背景可见度」：值越小图片越清晰。 */
   .bg::after{content:'';position:absolute;inset:0;
@@ -208,8 +211,9 @@
 
   /* ---------- 背景预览：在设置里实时还原「背景图 + 可见度 + 玻璃磨砂」的真实观感 ---------- */
   .bgprev{position:relative;height:200px;border-radius:var(--r-md);overflow:hidden;
-    border:1px solid var(--border);background:#0b0e14;margin:2px 0 14px;cursor:crosshair}
-  .bgprev-img{position:absolute;inset:0;background-size:cover;
+    border:1px solid var(--border);background:var(--bg-app);margin:2px 0 14px;cursor:crosshair}
+  .bgprev.bgprev-sm{height:156px;margin:2px 0 4px}
+  .bgprev-img{position:absolute;inset:0;background-image:var(--bg);background-size:cover;
     background-position:var(--bg-pos,50% 50%);background-repeat:no-repeat}
   .bgprev-tint{position:absolute;inset:0;transition:background .12s}
   .bgprev-mark{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;
@@ -332,8 +336,10 @@
   html[data-side-glass="off"] .side{
         -webkit-backdrop-filter:none;backdrop-filter:none;
         box-shadow:0 10px 30px rgba(0,0,0,.22)}
+  .side-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+        padding:2px 6px 12px;flex:0 0 auto}
   .logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;
-        letter-spacing:.4px;padding:4px 8px 18px;line-height:1}
+        letter-spacing:.4px;padding:0;line-height:1}
   .logo .mark{width:26px;height:26px;flex-shrink:0;filter:drop-shadow(0 3px 8px rgba(124,131,255,.5))}
   .logo span{background:var(--me-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
   .btn{border:1px solid var(--border);background:var(--hover-1);border-radius:var(--r-md);
@@ -345,12 +351,13 @@
   .btn.primary{background:var(--me-grad);color:#0a0c10;border-color:transparent;
        text-align:center;justify-content:center;font-weight:600;box-shadow:0 6px 18px rgba(124,131,255,.35)}
   .btn.primary:hover{filter:brightness(1.07);color:#0a0c10}
-  .conv-list{flex:1;overflow-y:auto;margin:6px 0;display:flex;flex-direction:column;gap:2px}
-  .conv{display:flex;align-items:center;border-radius:var(--r-sm);padding:9px 11px;font-size:12px;
+  .conv-err{font-size:11px;color:#ff8a8a;padding:6px 10px;line-height:1.5}
+  .conv-list{flex:1;overflow-y:auto;margin:4px 0;display:flex;flex-direction:column;gap:1px}
+  .conv{display:flex;align-items:center;border-radius:var(--r-sm);padding:6px 10px;font-size:12px;
         cursor:pointer;color:var(--sub);transition:.15s}
   .conv:hover{background:var(--hover-2);color:var(--txt)}
   .conv.active{background:rgba(124,131,255,.12);color:var(--txt);font-weight:600;
-        box-shadow:inset 0 0 0 1px rgba(124,131,255,.28)}
+        box-shadow:inset 0 0 0 1px rgba(124,131,255,.22)}
   /* min-width:0 是必须的：flex 子项默认不肯收缩到内容宽度以下，
      没有它 text-overflow:ellipsis 根本不生效，长标题会直接撑破格子 */
   .conv .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -560,7 +567,7 @@
   .send.stop{background:rgba(248,113,113,.15);color:var(--danger);box-shadow:none;
              border:1px solid rgba(248,113,113,.5);font-size:13px;padding:0 14px}
   /* 底部行：上下文环 + 提示 + 模型切换（与输入框一体，不再独立成条） */
-  .ib-foot{display:flex;align-items:center;gap:12px;padding:2px 4px 0}
+  .ib-foot{display:flex;align-items:center;gap:12px;padding:2px 4px 0;position:relative}
   .att-row{display:none;flex-wrap:wrap;gap:6px;padding:6px 8px 0;order:-1}
   .att-chip{display:inline-flex;align-items:center;gap:4px;max-width:200px;padding:3px 6px 3px 8px;
             border-radius:8px;background:var(--glass-2);border:1px solid var(--border);
@@ -578,6 +585,17 @@
           transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .4s,stroke .3s}
   .g-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
          font-size:9px;font-weight:700;color:var(--txt);font-variant-numeric:tabular-nums}
+  /* 上下文占用明细弹窗：点击输入框左下角的上下文环即可展开 */
+  .ctx-pop{position:absolute;bottom:calc(100% + 10px);left:0;width:264px;z-index:80;
+    background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--r-md);
+    box-shadow:var(--sh-3);padding:12px 14px;font-size:12px;color:var(--txt)}
+  .ctx-pop h5{font-size:12px;font-weight:700;margin:0 0 8px}
+  .ctx-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0}
+  .ctx-row > span{color:var(--sub)}
+  .ctx-row > b{font-variant-numeric:tabular-nums;font-weight:600;color:var(--txt)}
+  .ctx-sep{height:1px;background:var(--border);margin:6px 0}
+  .ctx-row.ctx-total{border-top:1px solid var(--border);padding-top:8px;margin-top:2px}
+  .ctx-row.ctx-total > b{color:var(--me1)}
   .ib-hint{font-size:11px;color:var(--ter);margin:0 auto;letter-spacing:.3px}
   .ms{border:1px solid var(--border);background:var(--glass-2);border-radius:99px;height:28px;
       padding:0 10px 0 8px;display:flex;align-items:center;gap:6px;cursor:pointer;
@@ -590,7 +608,9 @@
   /* 快捷菜单（＋ / 模型切换） */
   .pop{position:absolute;bottom:calc(100% + 10px);left:0;width:300px;max-height:62vh;overflow-y:auto;
        background:var(--modal-bg);border:1px solid var(--border);border-radius:16px;
-       padding:8px;box-shadow:0 18px 50px rgba(0,0,0,.4);display:none;z-index:40}
+       -webkit-backdrop-filter:blur(20px) saturate(145%);
+       backdrop-filter:blur(20px) saturate(145%);
+       padding:8px;box-shadow:var(--shadow-lg);display:none;z-index:40}
   .pop.show{display:block;animation:pop .18s cubic-bezier(.2,.8,.2,1)}
   /* 模型切换菜单：右对齐，紧贴右下角的切换按键（否则会跑到左侧去） */
   #modelMenu{right:0;left:auto;transform-origin:bottom right}
@@ -607,16 +627,15 @@
   @keyframes pulse{50%{opacity:.5}}
 
   /* ---- 弹窗基础 ---- */
-  .mask{position:fixed;inset:0;background:rgba(6,8,12,.62);backdrop-filter:blur(8px);
+  .mask{position:fixed;inset:0;background:var(--mask-bg);backdrop-filter:blur(8px);
         display:none;align-items:center;justify-content:center;z-index:50}
   .mask.show{display:flex;animation:fade .2s ease}
   /* 模型选择 / 手填弹窗要盖在「设置」弹窗之上（同 z-index 时后者靠后反而压住前者） */
   #apiMask{z-index:60}
   @keyframes fade{from{opacity:0}to{opacity:1}}
-  /* 弹窗打开时：全局关闭玻璃模糊，消除「弹窗自身 + 背后面板」双层 backdrop-filter 嵌套卡顿。
-     仅关闭模糊，保留半透明底色与阴影，观感不变、开销归零。 */
-  body.modal-open .glass,
-  body.modal-open .modal.glass,
+  /* 弹窗打开时：只关「背景层」的模糊以省算力，消除多层 backdrop-filter 嵌套卡顿。
+     弹窗自身（.modal）必须排除在外 —— 它要保留磨砂，背景才能透下去。 */
+  body.modal-open .glass:not(.modal),
   body.modal-open .side,
   body.modal-open .main{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
   body.modal-open .mask{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
@@ -625,6 +644,23 @@
          background:var(--modal-bg);
          position:relative;
          animation:pop .22s cubic-bezier(.2,.8,.2,1)}
+  /* 弹窗 = 磨砂玻璃：背景透下去 + 模糊；深色字压在亮底上依旧清晰 */
+  .modal.glass,
+  html[data-glass="on"] .modal.glass{
+    -webkit-backdrop-filter:blur(20px) saturate(145%);
+    backdrop-filter:blur(20px) saturate(145%);
+    box-shadow:var(--shadow-lg);
+  }
+  /* 浅色：磨砂更实、模糊更强 —— 白玻璃透出背景，但字依然看得清 */
+  html[data-theme="light"] .modal.glass,
+  html[data-theme="light"][data-glass="on"] .modal.glass{
+    -webkit-backdrop-filter:blur(24px) saturate(160%);
+    backdrop-filter:blur(24px) saturate(160%);
+  }
+  /* 玻璃总开关关闭时：弹窗退回实心底色（不透明，墙纸不透了） */
+  html[data-glass="off"] .modal.glass{
+    -webkit-backdrop-filter:none;backdrop-filter:none;background:var(--bg-panel);
+  }
   @keyframes pop{from{transform:translateY(10px) scale(.98);opacity:0}to{transform:none;opacity:1}}
   /* 设置窗口滑入：从下方轻微上滑 + 淡入，体现「滑动」观感 */
   @keyframes setSlide{from{transform:translateY(20px) scale(.99);opacity:0}to{transform:none;opacity:1}}
@@ -663,6 +699,9 @@
   .set-nav .nav-btn:hover{background:rgba(255,255,255,.05);color:var(--txt)}
   .set-nav .nav-btn.active{background:var(--me-grad);color:#0a0c10;font-weight:600;
            box-shadow:0 4px 14px rgba(124,131,255,.35)}
+  .build-tag{margin-top:auto;padding:10px 14px 2px;font-size:11px;line-height:1.4;
+           color:var(--ter);opacity:.65;user-select:text;-webkit-user-select:text;
+           border-top:1px solid var(--border)}
   .set-body{flex:1;padding:24px 26px 20px;overflow-y:auto;position:relative;scroll-behavior:smooth;overscroll-behavior:contain}
   /* 外观预览：设置弹窗底部的小窗（常驻，不随内容滚走） */
   .modal.settings{position:relative}
@@ -673,7 +712,9 @@
     font-size:12.5px;font-weight:700;color:var(--txt)}
   .tpf-tip{font-size:11px;font-weight:400;color:var(--ter)}
   .theme-preview-float .bgprev{position:relative;top:auto;height:168px}
-  #mask .set-body{padding-bottom:214px}
+  #mask .set-body{padding-bottom:20px}
+  /* 仅当处于「个性化」面板（底部常驻预览可见）时，才给预览窗预留空间 */
+  #mask .set-body.preview-pane{padding-bottom:214px}
   .set-pane h4{font-size:16px;margin-bottom:6px;font-weight:700}
   .set-pane .desc{font-size:12.5px;color:var(--sub);margin-bottom:16px;line-height:1.65}
   .set-close{position:absolute;top:14px;right:16px;border:0;background:var(--glass-1);
@@ -769,10 +810,10 @@
   .tier-flagship{color:#c4b5fd;background:rgba(167,139,250,.16);border-color:rgba(167,139,250,.4)}
   .tier-balanced{color:#7dd3fc;background:rgba(125,211,252,.14);border-color:rgba(125,211,252,.36)}
   .tier-economy{color:#86efac;background:rgba(134,239,172,.14);border-color:rgba(134,239,172,.36)}
-  /* 浅色主题下徽标要够深，否则读不清 */
-  body.light .tier-flagship{color:#5b21b6;background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.42)}
-  body.light .tier-balanced{color:#0369a1;background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.4)}
-  body.light .tier-economy{color:#047857;background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4)}
+  /* 浅色主题下徽标要够深，否则读不清（主题用 html[data-theme="light"] 控制，必须用同选择器） */
+  html[data-theme="light"] .tier-flagship{color:#5b21b6;background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.42)}
+  html[data-theme="light"] .tier-balanced{color:#0369a1;background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.4)}
+  html[data-theme="light"] .tier-economy{color:#047857;background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4)}
   /* 模型清单 */
   .mlist{max-height:270px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;
        background:var(--bg-input);padding:6px;margin-top:8px}
@@ -980,10 +1021,11 @@
   /* 图标统一槽位：不论图标本身多大，都占同一宽度，
      于是「标题 / 导航 / 页脚」的文字左缘严格落在同一条竖线上 */
   .logo{padding:4px var(--row-px) var(--row-py)}
-  .side .btn{padding:10px var(--row-px)}
-  .conv{padding:var(--row-py) var(--row-px) var(--row-py)
+  .side .btn{padding:8px var(--row-px)}
+  /* 任务栏会话项：上下用 --row-py-conv（比导航更紧），左侧仍与导航文字对齐 */
+  .conv{padding:var(--row-py-conv) var(--row-px) var(--row-py-conv)
                 calc(var(--row-px) + var(--ic-slot) + var(--ic-gap))}
-  .conv-list{gap:4px}
+  .conv-list{gap:2px}
   .logo .mark{width:var(--ic-slot);height:var(--ic-slot);flex:0 0 var(--ic-slot)}
   .side .btn svg{width:var(--ic-slot);height:var(--ic-slot);flex:0 0 var(--ic-slot)}
   .side .btn,.logo{gap:var(--ic-gap)}
@@ -1030,12 +1072,12 @@
   <div class="glass-grain"></div>
   <!-- 侧栏（独立玻璃：自己的 data-side-glass / --side-op，不随整窗玻璃开关变化） -->
   <div class="side">
-    <div class="logo">
-      <span>intent</span>
-    </div>
-    <!-- 快捷任务（接替原「新建聊天」入口）：待机圆点 → 点击展开胶囊 → 再向下展开为卡片。
-         放在顶部，卡片向下展开正好落在会话列表的空白区。 -->
-    <div class="dotpill" id="quickPill" style="margin:2px 0 0">
+    <div class="side-head">
+      <div class="logo">
+        <span>intent</span>
+      </div>
+      <!-- 快捷任务：待机圆球 → 悬停展开成胶囊 → 点击核心展开卡片 -->
+      <div class="dotpill" id="quickPill" onmouseenter="quickPillEnter()" onmouseleave="quickPillLeave()">
       <button class="dp-core" onclick="toggleQuickPill()" aria-label="快捷任务" title="快捷任务">
         <svg class="dp-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -1050,17 +1092,18 @@
         </div>
       </div>
     </div>
+    </div>
     <div class="conv-list" id="convList"></div>
     <div class="side-foot">
       <button class="btn wb" id="wbBtn" onclick="openWorkbench()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-        工作台</button>
-      <button class="btn" onclick="openMemBook()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4a2 2 0 0 1 2-2h5v18H7a2 2 0 0 1-2-2zM19 4a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 0 2-2z"/></svg>
-        记忆书</button>
+        工作台      </button>
       <button class="btn" onclick="showKB()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M8 3v3M16 3v3M4 10h16"/></svg>
         知识库</button>
+      <button class="btn" onclick="showPetPane()" title="桌面桌宠：把装在 intent 上的桌宠唤醒 / 让它下课">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="9.6" cy="11" r=".9" fill="currentColor" stroke="none"/><circle cx="14.4" cy="11" r=".9" fill="currentColor" stroke="none"/><path d="M9.4 14.6q2.6 2 5.2 0"/></svg>
+        桌宠</button>
       <button class="btn" onclick="showMarket()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h18M4.5 9l1.2 11h12.6l1.2-11"/><path d="M8.5 9V6.5a3.5 3.5 0 0 1 7 0V9"/></svg>
         市场</button>
@@ -1118,13 +1161,22 @@
           <button class="send stop" id="stop" onclick="stopGen()" style="display:none" title="停止生成">■</button>
         </div>
         <div class="ib-foot">
-          <button class="gauge" id="ctxGauge" title="上下文用量（环：浅色=剩余可用，填充=已用）">
+          <button class="gauge" id="ctxGauge" title="上下文用量（环：浅色=剩余可用，填充=已用）· 点击查看占用明细" onclick="toggleCtxPop()">
             <svg viewBox="0 0 40 40" width="30" height="30">
               <circle class="g-track" cx="20" cy="20" r="16"></circle>
               <circle class="g-fill" id="ctxArc" cx="20" cy="20" r="16"></circle>
             </svg>
             <span class="g-num" id="ctxNum">0%</span>
           </button>
+          <div class="ctx-pop" id="ctxPop" style="display:none">
+            <h5>上下文占用明细</h5>
+            <div class="ctx-row"><span>系统提示 + 历史对话</span><b id="cxSent">—</b></div>
+            <div class="ctx-row"><span>本轮输入（未发送）</span><b id="cxPending">—</b></div>
+            <div class="ctx-row"><span>模型思考</span><b id="cxThink">—</b></div>
+            <div class="ctx-row"><span>模型输出（生成中）</span><b id="cxGen">—</b></div>
+            <div class="ctx-sep"></div>
+            <div class="ctx-row ctx-total"><span>已用 / 容量</span><b id="cxTotal">—</b></div>
+          </div>
           <span class="ib-hint">内容由 AI 生成，请注意甄别</span>
           <button class="ms" id="modelSwitch" onclick="toggleModel()" title="切换模型">
             <span class="ms-dot"></span>
@@ -1153,56 +1205,16 @@
     </div>
   </div>
 
-  <!-- 记忆与知识库弹窗：左栏「记忆 / 知识库」两大区 -->
+  <!-- 知识库弹窗 -->
   <div class="mask" id="kbMask">
     <div class="modal settings glass" style="width:min(860px,94vw)">
       <button class="set-close" title="关闭" onclick="hideKB()">✕</button>
       <div class="set-nav">
-        <button class="nav-btn active" data-pane="kb-mem" onclick="kbPane('kb-mem')">记忆</button>
-        <button class="nav-btn" data-pane="kb-doc" onclick="kbPane('kb-doc')">知识库</button>
+        <button class="nav-btn active" data-pane="kb-doc" onclick="kbPane('kb-doc')">知识库</button>
       </div>
       <div class="set-body">
-        <!-- ===== 记忆 ===== -->
-        <div id="pane-kb-mem" class="set-pane">
-          <h4>长期记忆</h4>
-          <div class="desc">跨会话持久化：对话里说「记住…」「我喜欢…」「我叫…」会自动入库；每轮只把<b>与本次提问相关</b>的记忆回注给模型，省 token 且不打扰。</div>
-          <div class="kv"><span class="k">记忆条数</span><span class="v" id="memStat">—</span></div>
-          <div class="row2" style="margin-top:10px">
-            <div class="field" style="flex:2">
-              <input type="text" id="memKw" placeholder="搜索记忆，如：主题"
-                     onkeydown="if(event.key==='Enter'){event.preventDefault();memSearch();}">
-            </div>
-            <div class="field" style="flex:1">
-              <button class="m-btn" style="width:100%" onclick="memSearch()">搜索</button>
-            </div>
-            <div class="field" style="flex:1">
-              <button class="m-btn" style="width:100%" onclick="memRefresh()">全部</button>
-            </div>
-          </div>
-          <div class="row2" style="margin-top:10px">
-            <div class="field" style="flex:2">
-              <input type="text" id="memNew" placeholder="手动添加一条记忆…">
-            </div>
-            <div class="field" style="flex:1">
-              <select id="memKind" class="m-input">
-                <option value="fact">事实</option>
-                <option value="preference">偏好</option>
-                <option value="profile">档案</option>
-                <option value="task">待办</option>
-              </select>
-            </div>
-            <div class="field" style="flex:1">
-              <button class="m-btn primary" style="width:100%" onclick="memAdd()">添加</button>
-            </div>
-          </div>
-          <div class="kb-hits" id="memList"></div>
-          <div class="modal-foot">
-            <span class="save-tip" id="memTip"></span>
-            <button class="m-btn" onclick="hideKB()">关闭</button>
-          </div>
-        </div>
         <!-- ===== 知识库 ===== -->
-        <div id="pane-kb-doc" class="set-pane" style="display:none">
+        <div id="pane-kb-doc" class="set-pane">
           <h4>知识库</h4>
           <div class="desc">两层检索：<b>文件名</b>（秒查路径）＋ <b>正文内容</b>（文档切块后建索引，能回答「文件里写了什么」）。正文索引支持 txt/md/csv/json/xml/py/js/html 等文本类文档。</div>
           <div class="kv"><span class="k">文件名索引</span><span class="v" id="kbState">查询中…</span></div>
@@ -1279,6 +1291,7 @@
       <div class="set-nav">
         <button class="nav-btn active" data-pane="mkt-skill" onclick="mktPane('mkt-skill')">技能</button>
         <button class="nav-btn" data-pane="mkt-plugin" onclick="mktPane('mkt-plugin')">插件</button>
+        <button class="nav-btn" data-pane="mkt-pet" onclick="mktPane('mkt-pet')">桌宠</button>
       </div>
       <div class="set-body">
         <div id="pane-mkt-skill" class="set-pane">
@@ -1309,6 +1322,11 @@
             <button class="m-btn" onclick="mktInstallUrl('plugin')" style="margin-top:8px">从链接安装插件</button>
           </div>
         </div>
+        <div id="pane-mkt-pet" class="set-pane" style="display:none">
+          <h4>桌面桌宠</h4>
+          <div class="desc">桌宠是装在 intent 上的「人格类插件」，是你的<b>生活助手</b>：它会变成桌面上的一颗小球常驻，陪你聊天、记日记、认得你。<b>日常直接跟桌宠说话</b>，它拥有完全独立的记忆，也依赖 intent 提供模型与能力（所以 intent 不在时它会自动退场）。<br>intent 本身更偏「办公处理事务」的工作工具；生活这一面交给桌宠。<br>球找不到了、或者想让它下课，都可以从这里操作。</div>
+          <div id="mktPetList" class="mkt-list"></div>
+        </div>
         <div class="modal-foot">
           <span class="save-tip" id="mktTip"></span>
           <button class="m-btn primary" onclick="hideMarket()">完成</button>
@@ -1323,12 +1341,12 @@
       <button class="set-close" title="关闭" onclick="hideSettings()">✕</button>
       <div class="set-nav">
         <button class="nav-btn active" data-pane="model" onclick="setPane('model')">模型</button>
-        <button class="nav-btn" data-pane="mem" onclick="setPane('mem')">记忆书</button>
         <button class="nav-btn" data-pane="ctx" onclick="setPane('ctx')">上下文</button>
         <button class="nav-btn" data-pane="bridge" onclick="setPane('bridge')">手机桥</button>
         <button class="nav-btn" data-pane="device" onclick="setPane('device')">设备</button>
         <button class="nav-btn" data-pane="workbench" onclick="setPane('workbench')">工作台</button>
         <button class="nav-btn" data-pane="theme" onclick="setPane('theme')">个性化</button>
+        <div class="build-tag">构建 vFIX4·1031</div>
       </div>
       <div class="set-body">
         <!-- 模型档案 -->
@@ -1383,12 +1401,6 @@
             <button class="m-btn" id="delProfBtn" onclick="delProfile()">删除此档案</button>
             <button class="m-btn primary" onclick="saveModel()">保存</button>
           </div>
-        </div>
-        <!-- 记忆书 -->
-        <div id="pane-mem" class="set-pane" style="display:none">
-          <h4>记忆书</h4>
-          <div class="desc">对话中让 Agent「记住…」的内容会写到这里，跨会话长期保留，也供 Agent 主动调取。完整管理（搜索 / 添加 / 删除）请用侧栏「记忆·知识库」面板。</div>
-          <div class="mem-box" id="memBox">查询中…</div>
         </div>
         <!-- 手机桥（电脑文件桥，入口从侧栏移入设置） -->
         <div id="pane-bridge" class="set-pane" style="display:none">
@@ -1481,10 +1493,10 @@
             </div>
           </div>
 
-          <!-- 2. 实时外观预览 → 已改为设置弹窗底部的小窗（见弹窗最下方） -->
+          <!-- 2. 实时外观预览 → 仅在个性化面板底部常驻显示 -->
           <div class="field" style="margin-top:var(--gap-out)">
             <label>实时外观预览</label>
-            <div class="desc" style="margin:-2px 0 8px">预览小窗已挪到<b>本设置弹窗的最底部</b>，切到任何面板都一直可见。底图是背景图，半透明卡片分别是<b>对话框</b>和<b>浏览器搜索</b>；调玻璃 / 可见度 / 画面焦点时会立刻跟着变，<b>点击预览任意位置</b>可设定画面焦点。</div>
+            <div class="desc" style="margin:-2px 0 8px">预览小窗固定显示在<b>本「个性化」面板的最底部</b>（切到模型 / 上下文等其它面板时会自动隐藏）。底图是背景图，半透明卡片分别是<b>对话框</b>和<b>浏览器搜索</b>；调玻璃 / 可见度 / 画面焦点时会立刻跟着变，<b>点击预览任意位置</b>可设定画面焦点。</div>
           </div>
 
           <!-- 3. 玻璃材质 -->
@@ -1621,7 +1633,12 @@
         <!-- 工作台（可剥离） -->
         <div id="pane-workbench" class="set-pane" style="display:none">
           <h4>工作台</h4>
-          <div class="desc">「工作台」是<b>可选的</b>设备统一管理工作台（独立面板，端口 3000），用于管理本机设备 / 服务。<br>intent 聊天 Agent 本身<b>完全独立运行</b>（三端口 6800/6801/6802 + 本窗口），<b>不依赖工作台</b>。如果只用聊天 Agent，可以把这个入口关掉，等于把工作台插件剥离。<br>工作台后端已改为<b>纯标准库</b>实现（不再需要 uvicorn / fastapi / pyyaml），点击侧栏「工作台」会自动拉起并打开面板。</div>
+          <div class="desc">「工作台」是<b>可选的</b>设备统一管理工作台（独立面板，端口 3000），用于管理本机设备 / 服务。<br>intent 聊天 Agent 本身<b>完全独立运行</b>（三端口 6800/6801/6802 + 本窗口），<b>不依赖工作台</b>。如果只用聊天 Agent，可以把这个入口关掉，等于把工作台插件剥离。</div>
+          <div class="wb-launch-row">
+            <button class="pri" id="wbLaunchBtn" onclick="launchWorkbench()">启动 / 打开工作台</button>
+            <span id="wbStatus" class="desc" style="margin:0 0 0 10px">状态：检测中…</span>
+          </div>
+          <div class="desc" style="margin-top:8px">点击上方按钮会<b>立即拉起后端</b>（纯标准库，无需 uvicorn / fastapi）并打开面板 <code>http://localhost:3000</code>；若已在运行则直接打开页面。侧栏的「工作台」按钮功能相同。</div>
           <div class="sw-group">
             <div class="sw-row">
               <label>在侧栏显示「工作台」入口</label>
@@ -1632,8 +1649,8 @@
           <div class="desc" style="margin-top:0">关闭后侧栏不再出现该按钮，聊天 Agent 一切照常；想恢复时回到这里勾上即可。也可直接编辑 配置.qdai 写 <code>workbench_enabled=0</code>。</div>
         </div>
       </div>
-      <!-- 外观实时预览：设置弹窗底部的小窗（任何面板都可见） -->
-      <div class="theme-preview-float" id="themePreviewFloat">
+      <!-- 外观实时预览：设置弹窗底部的小窗（仅「个性化」面板可见，其余面板隐藏） -->
+      <div class="theme-preview-float" id="themePreviewFloat" style="display:none">
         <div class="tpf-head">
           <span>外观实时预览</span>
           <span class="tpf-tip">调玻璃 / 可见度 / 焦点即时生效 · 点击画面可设焦点</span>
@@ -1859,8 +1876,14 @@ function startRename(){
 
 /* ---------- 会话 ---------- */
 async function refreshList(){
-  const list = await pywebview.api.list_conversations();
   const box = document.getElementById('convList');
+  let list = [];
+  try {
+    list = await pywebview.api.list_conversations();
+  } catch(e){
+    box.innerHTML = '<div class="conv-err">会话列表加载失败：' + esc(String((e && e.message) || e)) + '</div>';
+    return;
+  }
   box.innerHTML = '';
   list.forEach(c => {
     const div = document.createElement('div');
@@ -1878,6 +1901,8 @@ async function openConv(id){
   curId = r.id; curTitle = r.title;
   setTopTitle(curTitle);
   msgs.innerHTML = ''; renderHistory(r.messages);
+  window._genTok = 0; window._thinkTok = 0; window._promptTok = 0; window._ctxUsed = 0;
+  recalcCtx();
   refreshList();
   return true;
 }
@@ -1887,6 +1912,8 @@ async function newChat(){
   curId = r.id; curTitle = r.title;
   setTopTitle(curTitle);
   msgs.innerHTML = emptyHTML();
+  window._genTok = 0; window._thinkTok = 0; window._promptTok = 0; window._ctxUsed = 0;
+  recalcCtx();
   refreshList(); input.focus();
 }
 async function delConv(id){
@@ -2112,6 +2139,7 @@ function _ensureThink(){
 window.__onThinking = chunk => {
   const el = _ensureThink();
   el.querySelector('.think-body').appendChild(document.createTextNode(chunk));
+  window._thinkTok = (window._thinkTok || 0) + estTokens(chunk);   // 累计模型思考占用的上下文
   if(el.scrollIntoView) el.scrollIntoView({block:'nearest'});
 };
 window.__onModelCall = p => {
@@ -2223,9 +2251,12 @@ function recalcCtx(){
   let hist = 0;
   document.querySelectorAll('#msgs .bubble').forEach(b => { hist += estTokens(b.innerText || ''); });
   const pending = estTokens(document.getElementById('input')?.value || '');
-  const local = hist + pending + (window._ctxBase || 0);
+  const thinkTok = window._thinkTok || 0;       // 模型思考占用的上下文
+  const genTok = window._genTok || 0;           // 模型输出（生成中）
+  const baseTok = window._ctxBase || 0;         // 系统提示等固定开销
+  const local = hist + pending + baseTok;
   const promptTok = Math.max(window._promptTok || 0, window._ctxUsed || 0, local);
-  const used = promptTok + (window._genTok || 0);
+  const used = promptTok + genTok + thinkTok;    // 已发送输入 + 模型输出 + 思考
   const pct = Math.min(100, Math.round(used / ctx * 100));
   const C = 100.53;  // 2πr, r=16
   const arc = document.getElementById('ctxArc');
@@ -2237,6 +2268,35 @@ function recalcCtx(){
   if(num) num.textContent = pct + '%';
   const gauge = document.getElementById('ctxGauge');
   if(gauge) gauge.title = '上下文已用约 ' + pct + '%（' + kfmt(used) + ' / ' + kfmt(ctx) + ' tok · 实时估算）';
+  // 占用明细（供弹窗展示）：让「到底是什么占了上下文」一目了然
+  window._ctxBreak = {
+    sent: hist + baseTok,   // 已发送：历史对话 + 系统提示
+    pending: pending,       // 本轮输入（尚未发送）
+    think: thinkTok,        // 模型思考
+    gen: genTok,            // 模型输出
+    used: used, ctx: ctx, pct: pct
+  };
+  if(isCtxPopOpen()) renderCtxPop();
+}
+function isCtxPopOpen(){
+  const p = document.getElementById('ctxPop');
+  return !!(p && p.style.display && p.style.display !== 'none');
+}
+function renderCtxPop(){
+  const b = window._ctxBreak; if(!b) return;
+  const set = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+  set('cxSent', kfmt(b.sent) + ' tok');
+  set('cxPending', b.pending ? (kfmt(b.pending) + ' tok') : '0 tok');
+  set('cxThink', b.think ? (kfmt(b.think) + ' tok') : '—');
+  set('cxGen', kfmt(b.gen) + ' tok');
+  set('cxTotal', kfmt(b.used) + ' / ' + kfmt(b.ctx) + ' tok（' + b.pct + '%）');
+}
+function toggleCtxPop(){
+  const p = document.getElementById('ctxPop');
+  if(!p) return;
+  const open = !(p.style.display && p.style.display !== 'none');
+  p.style.display = open ? 'block' : 'none';
+  if(open) renderCtxPop();
 }
 /* 服务端下发的上下文快照：容量 + 本轮实际占用（含 system/工具 schema/本轮输入） */
 window.__onCtx = c => {
@@ -2302,7 +2362,7 @@ async function send(){
   busy = true; sendBtn.disabled = true;
   toggleStop(true);
   input.value = ''; input.style.height = 'auto';
-  window._genTok = 0; window._promptTok = 0; window._ctxUsed = 0;
+  window._genTok = 0; window._promptTok = 0; window._ctxUsed = 0; window._thinkTok = 0;
   if(text) addMsg('me', text);
   // 把图片/文件作为「我」的消息回显（后端也会真正携带附件）
   atts.forEach(a => addMsg('me', (a.kind === 'image' ? '🖼️ 图片：' : '📎 文件：') + a.name));
@@ -2394,6 +2454,34 @@ async function openWorkbench(){
   if(!r.ok){ alert(r.error || r.msg || '工作台启动失败'); return; }
   renderStatus(await pywebview.api.get_status());
 }
+/* 设置面板里的「启动 / 打开工作台」按钮：真实拉起并打开面板 */
+async function launchWorkbench(){
+  const btn = document.getElementById('wbLaunchBtn');
+  const st = document.getElementById('wbStatus');
+  if(btn) btn.disabled = true;
+  if(st) st.textContent = '正在启动工作台…';
+  try {
+    const r = await pywebview.api.open_workbench();
+    if(r && r.ok){ if(st) st.textContent = '已启动：http://localhost:3000'; }
+    else { if(st) st.textContent = (r && (r.error || r.msg)) || '启动失败'; }
+  } catch(e){
+    if(st) st.textContent = '调用失败：' + e;
+  } finally {
+    if(btn) btn.disabled = false;
+    setTimeout(refreshWorkbenchStatus, 1500);
+  }
+}
+/* 实时显示工作台运行状态（不拉起） */
+async function refreshWorkbenchStatus(){
+  const st = document.getElementById('wbStatus');
+  if(!st) return;
+  try {
+    const r = await pywebview.api.workbench_status();
+    if(r && r.running){ st.textContent = '运行中：http://localhost:3000'; }
+    else if(r && r.installed){ st.textContent = '未运行（点击上方按钮启动）'; }
+    else { st.textContent = '未安装工作台运行时'; }
+  } catch(e){ st.textContent = '状态检测失败'; }
+}
 async function refreshBridge(){
   let s;
   try { s = await pywebview.api.bridge_status(); }
@@ -2446,6 +2534,10 @@ async function showMarket(){
   document.body.classList.add('modal-open');
   mktPane('mkt-skill');
   await mktRefresh();
+}
+async function showPetPane(){
+  showMarket();
+  mktPane('mkt-pet');
 }
 function hideMarket(){
   document.getElementById('mktMask').classList.remove('show');
@@ -2530,6 +2622,58 @@ async function mktRefresh(){
       } else st.forEach(it => se.appendChild(mktRow(it, m[0], 'store')));
     }
   });
+  await mktRefreshPets();     // 桌宠（companion 插件）：唤醒 / 让它休息
+}
+/* 桌宠不是工具插件：它驻在桌面上，这里只负责「叫醒」和「让它下课」 */
+async function mktRefreshPets(){
+  const le = document.getElementById('mktPetList');
+  if(!le) return;
+  let r;
+  try { r = await pywebview.api.companions_list(); } catch(e){ return; }
+  const items = (r && r.items) || [];
+  le.innerHTML = '';
+  if(!items.length){
+    const e1 = document.createElement('div');
+    e1.className = 'mkt-empty';
+    e1.textContent = '还没有装桌宠（去「插件」页安装，或把 .qdplugin 放进 plugins 目录）';
+    le.appendChild(e1);
+    return;
+  }
+  items.forEach(it => {
+    const row = document.createElement('div'); row.className = 'mkt-item';
+    const main = document.createElement('div'); main.className = 'mkt-main';
+    const nm = document.createElement('div'); nm.className = 'mkt-name';
+    nm.textContent = (it.name || it.id) + '  (' + it.id + ')';
+    const ds = document.createElement('div'); ds.className = 'mkt-desc';
+    ds.textContent = it.desc || '（无描述）';
+    main.appendChild(nm); main.appendChild(ds);
+    const st = document.createElement('div'); st.className = 'mkt-use';
+    st.textContent = it.running ? '状态：已经在桌面上（找那颗小球）' : '状态：休息中';
+    main.appendChild(st);
+
+    const ops = document.createElement('div'); ops.className = 'mkt-ops';
+    const wake = document.createElement('button');
+    wake.className = 'm-btn sm' + (it.running ? '' : ' primary');
+    wake.textContent = it.running ? '重新唤醒' : '唤醒';
+    wake.onclick = async () => {
+      const rr = await pywebview.api.companion_start(it.id);
+      mktTip(rr && rr.ok ? '「' + (it.name || it.id) + '」已经回到桌面上了' 
+                         : '唤醒失败：' + ((rr && rr.error) || '未知错误'), !(rr && rr.ok));
+      await mktRefreshPets();
+    };
+    const rest = document.createElement('button');
+    rest.className = 'm-btn sm warn';
+    rest.textContent = '让它休息';
+    rest.onclick = async () => {
+      const rr = await pywebview.api.companion_stop(it.id);
+      mktTip(rr && rr.ok ? '「' + (it.name || it.id) + '」下课了，随时可以再唤醒'
+                         : '操作失败：' + ((rr && rr.error) || '未知错误'), !(rr && rr.ok));
+      await mktRefreshPets();
+    };
+    ops.appendChild(wake); ops.appendChild(rest);
+    row.appendChild(main); row.appendChild(ops);
+    le.appendChild(row);
+  });
 }
 async function mktInstall(kind, id){
   const r = await pywebview.api.market_install(kind, id);
@@ -2567,7 +2711,7 @@ async function mktInstallUrl(kind){
 async function showKB(){
   document.getElementById('kbMask').classList.add('show');
   document.body.classList.add('modal-open');
-  kbPane('kb-mem');
+  kbPane('kb-doc');
 }
 function hideKB(){ document.getElementById('kbMask').classList.remove('show'); document.body.classList.remove('modal-open'); }
 function kbPane(name){
@@ -2575,8 +2719,7 @@ function kbPane(name){
   document.querySelectorAll('#kbMask .nav-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.pane === name);
   });
-  if(name === 'kb-mem') memRefresh();
-  else kbRefresh();
+  kbRefresh();
 }
 async function kbRefresh(){
   const el = document.getElementById('kbState');
@@ -2714,6 +2857,16 @@ async function memDel(id){
   tip.textContent = (r && r.ok) ? (r.message || '已删除') : ((r && r.error) || '删除失败');
   memRefresh();
 }
+async function memSynthesize(){
+  const tip = document.getElementById('memTip');
+  const r = await pywebview.api.mem_synthesize();
+  if(r && r.ok){
+    tip.textContent = (r.made > 0) ? ('已归纳 '+r.made+' 张场景卡（L2）') : '暂无可归纳的记忆';
+    memRefresh();
+  } else {
+    tip.textContent = (r && r.error) || '操作失败';
+  }
+}
 
 /* ---------- 设置：上下文调试 ---------- */
 async function refreshCtx(){
@@ -2798,16 +2951,22 @@ function setPane(name){
     b.classList.toggle('active', b.dataset.pane === name);
   });
   document.getElementById('pane-model').style.display = (name === 'model') ? 'block' : 'none';
-  document.getElementById('pane-mem').style.display = (name === 'mem') ? 'block' : 'none';
   document.getElementById('pane-ctx').style.display = (name === 'ctx') ? 'block' : 'none';
   document.getElementById('pane-bridge').style.display = (name === 'bridge') ? 'block' : 'none';
   document.getElementById('pane-device').style.display = (name === 'device') ? 'block' : 'none';
   document.getElementById('pane-workbench').style.display = (name === 'workbench') ? 'block' : 'none';
   document.getElementById('pane-theme').style.display = (name === 'theme') ? 'block' : 'none';
-  if(name === 'mem') memRefresh();
+  // 外观实时预览只在「个性化」面板常驻显示；其余面板（含模型）一律不展示
+  const tpf = document.getElementById('themePreviewFloat');
+  if(tpf) tpf.style.display = (name === 'theme') ? '' : 'none';
+  // 仅「个性化」面板需要给底部预览窗预留 214px 空白，其它面板恢复正常底部边距
+  const sb = document.querySelector('#mask .set-body');
+  if(sb) sb.classList.toggle('preview-pane', name === 'theme');
   if(name === 'ctx') refreshCtx();
   if(name === 'bridge') refreshBridge();
   if(name === 'device') refreshDevice();
+  if(name === 'workbench') refreshWorkbenchStatus();
+  if(name === 'theme') updateBgPreview();
 }
 async function refreshDevice(){
   try { renderStatus(await pywebview.api.get_status()); } catch(e){}
@@ -2910,7 +3069,7 @@ async function showSettings(){
   else { window._curProfile = Object.assign({}, active); window._activeKey = '__current__'; }
   buildProfileOpts();
   loadProfileFields(window._activeKey);
-  applyTheme(s.theme || 'dark');   // 个性化：与后端保存的主题保持一致
+  applyTheme((s.theme === 'light' || s.theme === 'dark') ? s.theme : (window._theme || 'dark'));   // 个性化：优先沿用已生效主题，避免后端缺省把浅色覆盖回深色
   const wb = document.getElementById('s_wb');
   if(wb) wb.setAttribute('aria-checked', !!s.workbench_enabled ? 'true' : 'false');
   applyWorkbench(s);               // 按开关显示/隐藏侧栏工作台按钮
@@ -2961,8 +3120,6 @@ async function setWorkbench(on){
   renderStatus(await pywebview.api.get_status());
 }
 function hideSettings(){ document.getElementById('mask').classList.remove('show'); document.body.classList.remove('modal-open'); }
-/* 记忆书：打开「设置 → 记忆书」面板（与知识库彻底分开，不共用入口） */
-function openMemBook(){ showSettings().then(() => setPane('mem')); }
 /* ---------- 个性化：主题 ---------- */
 function applyTheme(t){
   if(t !== 'light' && t !== 'dark') t = 'dark';
@@ -3523,26 +3680,28 @@ function applyBackground(value){
 function updateBgPreview(){
   const root = document.documentElement;
   const cs = getComputedStyle(root);
-  const img = document.getElementById('bgPrevImg');
-  const tint = document.getElementById('bgPrevTint');
-  const tag = document.getElementById('bgPrevTag');
   const bg = (cs.getPropertyValue('--bg') || '').trim();
-  if(img && bg) img.style.backgroundImage = bg;
   const glassOn = root.getAttribute('data-glass') === 'on';
   const rgb = (cs.getPropertyValue('--bg-tint-rgb') || '').trim() || '8,10,16';
   const aKey = glassOn ? '--bg-tint-a-on' : '--bg-tint-a';
   let a = parseFloat((cs.getPropertyValue(aKey) || '').trim());
   if(isNaN(a)) a = glassOn ? 0.52 : 0.38;
-  if(tint) tint.style.background = 'rgba(' + rgb + ',' + a + ')';
-  const mk = document.getElementById('bgPrevMark');
-  if(mk){ mk.style.left = _bgPosX + '%'; mk.style.top = _bgPosY + '%'; }
-  if(tag){
-    const visEl = document.getElementById('s_vis');
-    const blurEl = document.getElementById('s_blur');
-    const visPct = visEl ? visEl.value : '70';
-    const blurPx = blurEl ? blurEl.value : '12';
-    tag.textContent = '可见度 ' + visPct + '% · 磨砂 ' + blurPx + 'px · ' + (glassOn ? '玻璃开' : '玻璃关');
-  }
+  const visEl = document.getElementById('s_vis');
+  const blurEl = document.getElementById('s_blur');
+  const visPct = visEl ? visEl.value : '70';
+  const blurPx = blurEl ? blurEl.value : '12';
+  const tagTxt = '可见度 ' + visPct + '% · 磨砂 ' + blurPx + 'px · ' + (glassOn ? '玻璃开' : '玻璃关');
+  // 同时驱动所有 .bgprev 实例（设置底部全局预览 + 模型面板内预览）
+  document.querySelectorAll('.bgprev').forEach(prev => {
+    const img = prev.querySelector('.bgprev-img');
+    const tint = prev.querySelector('.bgprev-tint');
+    const tag = prev.querySelector('.bgprev-tag');
+    const mk = prev.querySelector('.bgprev-mark');
+    if(img && bg) img.style.backgroundImage = bg;
+    if(tint) tint.style.background = 'rgba(' + rgb + ',' + a + ')';
+    if(mk){ mk.style.left = _bgPosX + '%'; mk.style.top = _bgPosY + '%'; }
+    if(tag) tag.textContent = tagTxt;
+  });
 }
 async function setBg(value){
   applyBackground(value);
@@ -3701,8 +3860,6 @@ function syncRegionEnabled(){
 function applyBgPos(x, y){
   _bgPosX = x; _bgPosY = y;
   document.documentElement.style.setProperty('--bg-pos', x + '% ' + y + '%');
-  const mk = document.getElementById('bgPrevMark');
-  if(mk){ mk.style.left = x + '%'; mk.style.top = y + '%'; }
   updateBgPreview();
 }
 function syncPosUI(x, y){
@@ -3724,7 +3881,7 @@ function setBgPosPreset(p){
 }
 /* 在预览图上点选：点的位置即图片要展示的对应位置 */
 function bgPrevPick(ev){
-  const box = document.getElementById('bgPrev');
+  const box = ev.currentTarget;
   if(!box) return;
   const r = box.getBoundingClientRect();
   if(!r.width || !r.height) return;
@@ -3738,11 +3895,34 @@ let _booted = false;
 window.addEventListener('DOMContentLoaded', () => {
   const boot = async () => {
     if(_booted) return; _booted = true;   // 只执行一次，避免重复 openConv 竞态
-    _startBlurPoll();   // 拖动窗口时整体模糊
+    // 整段包起来：任何一步抛错都不能让「加载上次会话」静默失效
+    try { await bootInner(); }
+    catch(e){
+      // 启动失败必须看得见，不能悄悄留白
+      try {
+        window.dispatchEvent(new ErrorEvent('error', {
+          error: (e && e.stack) ? e : new Error(String(e)),
+          message: '启动流程中断：' + ((e && e.message) || e)
+        }));
+      } catch(_){}
+    }
+  };
+  const bootInner = async () => {
+    try { _startBlurPoll(); } catch(e){}   // 拖动窗口时整体模糊（失败不影响启动）
     // 各步骤独立容错：任何一步出错都不影响「加载上次会话」
     try { renderStatus(await pywebview.api.get_status()); } catch(e){}
     let list = [];
     try { list = await pywebview.api.list_conversations(); } catch(e){}
+    // 先把历史会话列出来，保证左侧任务栏立刻能看到以前的对话（不必先新建）
+    try { await refreshList(); } catch(e){}
+    // 桥刚就绪的那一瞬间，第一次调用有可能落空（返回空 / 被拒），
+    // 于是历史会话列不出来、标题停在「新对话」——静默留白最难查。
+    // 这里等一拍再重试一次，把这种竞态兜住。
+    if(!list || !list.length){
+      await new Promise(r => setTimeout(r, 400));
+      try { list = await pywebview.api.list_conversations(); } catch(e){}
+      try { await refreshList(); } catch(e){}
+    }
     // 打开最近会话：失败（文件损坏/瞬时读失败）时自动尝试其它会话，最终回退到新对话，
     // 保证启动后一定能看到内容，而不会静默留白。
     if(list.length){
@@ -3757,8 +3937,11 @@ window.addEventListener('DOMContentLoaded', () => {
     // 未配置 API → 首次自动弹设置引导
     try {
       const s = await pywebview.api.get_settings();
-      // 主题以后端配置为唯一权威（首帧先用 localStorage 避免闪烁，这里再对齐）
-      const th = s.theme || 'dark';
+      // 主题：优先用后端已明确存的值；后端若缺省（多半是 dark 占位），
+      // 则保留当前已生效的主题（localStorage 或内存里的值），绝不用 dark 把浅色覆盖回去
+      const savedTheme = (function(){ try { return localStorage.getItem('qd-theme'); } catch(e){ return null; } })();
+      const th = (s.theme === 'light' || s.theme === 'dark') ? s.theme
+                 : (savedTheme || window._theme || 'dark');
       applyTheme(th);
       try { localStorage.setItem('qd-theme', th); } catch(e){}
       applyGlass(s.glass_enabled !== false, s.glass_refract !== false);
@@ -3813,17 +3996,36 @@ async function toggleSw(el, fnName){
 }
 
 /* ---------- 圆点 → 胶囊 → 信息卡 ----------
-   第一次点击：圆点原地不动、宽度向两侧拉开成胶囊，图标先到、文字随后；
-   再点一次：胶囊向下继续展开为卡片，保留图标与标题，逐步露出详情与操作。 */
+   悬停圆球区域：圆球向两侧展开成胶囊（图标 + 「快捷任务」文字）；
+   鼠标移出区域：缩回成圆球。点击核心：在胶囊基础上向下展开卡片（新建对话 / 打开知识库）。 */
+function quickPillEnter(){
+  const p = document.getElementById('quickPill');
+  if(p) p.classList.add('open');
+}
+function quickPillLeave(){
+  const p = document.getElementById('quickPill');
+  if(!p) return;
+  // 卡片还开着时保留展开态（承载卡片），否则缩回成圆球
+  if(!p.classList.contains('card-open')) p.classList.remove('open');
+}
 function toggleQuickPill(){
   const p = document.getElementById('quickPill');
   if(!p) return;
-  if(!p.classList.contains('open')){ p.classList.add('open'); return; }
-  p.classList.toggle('card-open');
+  const open = !p.classList.contains('card-open');
+  p.classList.toggle('card-open', open);
+  if(open) p.classList.add('open');   // 展开胶囊以承载卡片
 }
 document.addEventListener('click', e => {
   const p = document.getElementById('quickPill');
-  if(p && !p.contains(e.target)) p.classList.remove('card-open');   // 点外面只收卡片，胶囊留住
+  if(p && !p.contains(e.target)){
+    p.classList.remove('card-open');
+    if(!p.matches(':hover')) p.classList.remove('open');   // 点外面：收卡片；若已不在悬停，连胶囊也缩回
+  }
+  const pop = document.getElementById('ctxPop');
+  if(pop && pop.style.display !== 'none'){
+    const g = document.getElementById('ctxGauge');
+    if(!pop.contains(e.target) && e.target !== g && !(g && g.contains(e.target))) pop.style.display = 'none';
+  }
 });
 
 /* ---------- 点赞：欢快 Q 弹 ---------- */
@@ -3928,5 +4130,6 @@ function _startBlurPoll(){
   _blurTimer = setInterval(_pollDragBlur, 250);
 }
 </script>
+
 </body>
 </html>

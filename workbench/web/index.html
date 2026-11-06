@@ -108,6 +108,34 @@
   <button onclick="genKey()" id="btn-key">生成API令牌</button>
   <button onclick="openAdd()">+ 添加设备</button>
 </div>
+
+<div class="card" id="bindCard" style="border-color:rgba(124,131,255,.35);box-shadow:0 0 0 1px rgba(124,131,255,.12),var(--shadow-sm)">
+  <h2>📲 设备绑定（配对码 / 二维码）</h2>
+  <div class="note">手机扫码自动绑定；电脑输入配对码绑定；带摄像头的设备均可扫码。配对码是通用的 —— 手机 / 电脑都能直接输入。</div>
+  <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin-top:14px">
+    <div style="flex:1;min-width:240px">
+      <div class="muted" style="margin-bottom:6px">配对码（通用：手机 / 电脑均可输入）</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <code id="bindCode" style="font-size:26px;font-weight:700;letter-spacing:3px;color:#fff;background:var(--bg-input);padding:8px 14px;border-radius:10px;border:1px solid var(--border)">------</code>
+        <button class="ghost" onclick="copyCode()">复制</button>
+        <button class="ghost" onclick="refreshCode()">刷新配对码</button>
+      </div>
+      <div class="muted" id="bindExpire" style="margin-top:8px"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center">
+        <input id="bindInput" placeholder="输入配对码（电脑端）" style="flex:1;min-width:130px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 12px;font-size:13px;font-family:inherit;outline:0">
+        <input id="bindName" placeholder="设备名称（可选）" style="flex:1;min-width:130px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 12px;font-size:13px;font-family:inherit;outline:0">
+        <button onclick="bindByCode()">绑定</button>
+      </div>
+      <div class="err" id="bindErr"></div>
+    </div>
+    <div style="text-align:center">
+      <div class="muted" style="margin-bottom:6px">二维码（手机 / 摄像头设备扫描）</div>
+      <img id="bindQr" alt="绑定二维码" style="width:168px;height:168px;background:#fff;border-radius:12px;padding:8px;display:block">
+      <div class="muted" style="margin-top:6px;font-size:11px">扫描后自动打开绑定页并带出配对码</div>
+    </div>
+  </div>
+</div>
+
 <div class="grid" id="devices"></div>
 
 <h2 style="margin: 24px 0 12px; font-size: 15px; font-weight: 600;">API 中转 (LiteLLM)</h2>
@@ -305,8 +333,57 @@ document.getElementById('overlay').addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+/* ---------- 设备绑定（配对码 / 二维码） ---------- */
+async function loadBind() {
+  try {
+    const res = await fetch('/api/bind');
+    const d = await res.json();
+    document.getElementById('bindCode').textContent = d.code || '------';
+    const qr = document.getElementById('bindQr');
+    if (d.qr_available && d.qr_url) { qr.src = d.qr_url + '?t=' + Date.now(); qr.style.display = 'block'; }
+    else { qr.style.display = 'none'; }
+    if (d.expires_in) document.getElementById('bindExpire').textContent =
+      '配对码有效时长约 ' + Math.round(d.expires_in / 60) + ' 分钟（过期自动刷新）';
+  } catch (e) {}
+}
+function copyCode() {
+  const t = document.getElementById('bindCode').textContent;
+  if (navigator.clipboard) navigator.clipboard.writeText(t);
+}
+async function refreshCode() {
+  try {
+    const res = await fetch('/api/bind?refresh=1');
+    const d = await res.json();
+    document.getElementById('bindCode').textContent = d.code || '------';
+    const qr = document.getElementById('bindQr');
+    if (d.qr_available && d.qr_url) qr.src = d.qr_url + '?t=' + Date.now();
+  } catch (e) {}
+}
+async function bindByCode() {
+  const code = document.getElementById('bindInput').value.trim().toUpperCase();
+  const name = document.getElementById('bindName').value.trim();
+  const err = document.getElementById('bindErr');
+  err.textContent = '';
+  err.style.color = '';
+  if (!code) { err.textContent = '请输入配对码'; return; }
+  try {
+    const res = await fetch('/api/bind', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, name }),
+    });
+    const d = await res.json();
+    if (!res.ok) { err.textContent = d.detail || '绑定失败'; return; }
+    err.style.color = 'var(--ok)';
+    err.textContent = '✓ 已绑定：' + d.device.name;
+    document.getElementById('bindInput').value = '';
+    document.getElementById('bindName').value = '';
+    await loadDevices();
+  } catch (e) { err.textContent = '请求异常: ' + e; }
+}
+
 loadDevices();
 refreshProxy();
+loadBind();
 </script>
 </body>
 </html>

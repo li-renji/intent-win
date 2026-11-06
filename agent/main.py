@@ -8,7 +8,7 @@
 import asyncio
 import sys
 
-from .browser.webview2 import WebView2Adapter
+from .browser.mybrowser_adapter import MyBrowserAdapter
 from .config import load_config
 from .history import SessionHistory
 from .servers import Context, serve_6800, serve_6801, serve_6802
@@ -20,7 +20,7 @@ async def main():
     cfg = load_config()
 
     bus = ToolBus(cfg)
-    browser = WebView2Adapter(cfg)
+    browser = MyBrowserAdapter(cfg)
     bus.attach_browser(browser.execute)
     history = SessionHistory(cfg["history_facts_n"], cfg["summary_max_chars"])
     ctx = Context(cfg, bus, browser, history)

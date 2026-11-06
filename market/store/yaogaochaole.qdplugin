@@ -1,0 +1,7 @@
+name: 网页DeepSeek(原生复刻EAgent)
+id: yaogaochaole
+version: 2.0
+desc: 原生复刻 EAgent(YaoGaoChaoLe) 的核心能力——用 CDP 自动化操控 Edge 里的 DeepSeek 网页版，把网页 DeepSeek 变成可返回文本的工具；无需 EAgent.exe、无需任何 .ps1 脚本。action 取值：start=启动调试 Edge 并打开 chat.deepseek.com（首次需在弹出的窗口里手动登录一次，登录态会保存在独立 profile）；status=检查调试端口和登录态；ask=提问题并等待回复，message 填问题文本（长文本请先把内容写成本地文件，再把文件绝对路径填进 message），timeout 填最长等待秒数（可留空或填 150）；new=开启新对话；last=只读当前最后一条助手回复；stop=关闭调试浏览器。首次使用顺序：start → 在 Edge 里登录 → status 看到 logged_in=true → ask。注意此方式违反 DeepSeek 用户协议，请低频使用。
+run: python "@ROOT@/tools/deepseek_web_adapter.py" "@ACTION@" "@MESSAGE@" "@TIMEOUT@"
+params: action, message, timeout
+timeout: 220

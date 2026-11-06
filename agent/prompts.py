@@ -35,6 +35,8 @@ _FRAG_BY_TOOL = {
 FRAG_BROWSER_USAGE = (
     "浏览器用法：先SNAPSHOT获取元素编号表，再CLICK/TYPE <编号>；"
     "只要正文用READ（最省token）。"
+    "用户要『打开/搜索网页』时，直接 NAVIGATE <网址或搜索词> 或 SEARCH <关键词> "
+    "打开浏览器并直达目标，不要先 SNAPSHOT 主页再手动找搜索框输入（那样慢且多一步）。"
 )
 
 
@@ -65,9 +67,12 @@ def _skills_digest(skills_dir):
     return "；".join(items)
 
 
-def build_system_prompt(tools_enabled, scenario="chat", skills_dir=None):
-    """按需拼接：身份 + 已启用工具的能力片段 + 边界；浏览器场景追加用法说明。"""
-    frags = [FRAG_IDENTITY]
+def build_system_prompt(tools_enabled, scenario="chat", skills_dir=None, identity=None):
+    """按需拼接：身份 + 已启用工具的能力片段 + 边界；浏览器场景追加用法说明。
+
+    ``identity`` 可选：传入则用它替换默认身份片段（人格插件接入点）。
+    """
+    frags = [identity if identity else FRAG_IDENTITY]
     for t in tools_enabled:
         f = _FRAG_BY_TOOL.get(t)
         if f:

@@ -12,6 +12,11 @@ import json
 import urllib.error
 import urllib.request
 
+try:
+    from . import safety
+except ImportError:  # 允许把 agent/ 直接加进 sys.path 做单文件调试
+    import safety
+
 TIMEOUT = 40  # 对齐 ai_service 40s deadline
 
 
@@ -31,6 +36,12 @@ def _hdr_value(text):
 
 
 def _post(url, payload, api_key, timeout=None):
+    # 出站唯一收口：GUI / 6800 / 6802 / AgentLoop 最终都会经过这里。
+    # 请求离开本机前先扫描并脱敏私密内容；安全层自身异常不阻断聊天。
+    try:
+        payload, _safety = safety.guard_outbound(url, payload)
+    except Exception:
+        pass
     req = urllib.request.Request(
         url,
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),

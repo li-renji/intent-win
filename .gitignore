@@ -5,6 +5,12 @@ shots/
 __pycache__/
 *.pyc
 
+# 插件运行时数据区（各插件自己的记忆/画像/日记，属本地数据非源码）
+plugin_data/
+
+# 单实例锁文件（运行时 PID）
+.run.pid
+
 # 工具运行时目录（记忆日志等，属本地数据非源码）
 .workbuddy/
 
@@ -43,3 +49,22 @@ phone.key
 
 # 系统备份（个人隐私数据，非项目源码）
 backups/
+
+# 自带运行时（Python + WebView2 + Chromium，合计约 2GB 二进制）
+# 不是源码，绝不入库；换机直接整体拷贝 D:\INTENT-win 文件夹即可带走。
+# 从 GitHub clone 的新机只有源码，用一行命令安装器自动补齐 runtime/。
+runtime/
+
+# 本地日志与本机环境备份（含完整 PATH / 用户目录，属个人隐私）
+logs/
+_probe_*
+
+# 构建产物：桌宠帧序列（244 张 PNG，可由 tools/build_assets.py 重新生成）
+**/assets/frames/
+
+# 发布中间产物 / 下载的升级包压缩件（源码已分别在 extension-hub/ 与 browser-upgrade/ 内）
+_publish/
+browser-upgrade/*.zip
+
+# 安装器端到端验收临时目录
+tests/_e2e_install/

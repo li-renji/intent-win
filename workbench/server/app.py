@@ -7,11 +7,15 @@
 
 对外接口:
   GET    /                        工作台 Web 面板
+  GET    /bind                   手机扫码落地的绑定页（自动带出配对码）
   GET    /api/devices             设备清单与端口探活状态
   POST   /api/devices             新增设备 (持久化写入 devices.yaml)
   PUT    /api/devices/{id}        修改设备 (持久化写入 devices.yaml)
   DELETE /api/devices/{id}        删除设备
   POST   /api/devices/{id}/toggle 切换"已部署/占位"状态
+  GET    /api/bind               获取配对码 / 二维码地址 / 有效期
+  GET    /api/bind/qr             绑定二维码（SVG，扫码即绑定）
+  POST   /api/bind               用配对码绑定当前设备（手机/电脑通用）
   GET    /api/proxy               API 中转(LiteLLM) 连接状态
   POST   /api/proxy/key           生成 API 令牌
 
@@ -19,20 +23,34 @@
   python server/app.py            # 默认 0.0.0.0:3000
   set WB_PORT=8080 & python server/app.py
 """
+import io
 import json
 import os
 import re
+import secrets
 import socket
+import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlparse, parse_qs
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_PATH = BASE_DIR / "devices.yaml"
 WEB_DIR = BASE_DIR / "web"
+
+# 内嵌二维码库（server/vendor/segno），保持工作台零外部运行时依赖
+_VENDOR_DIR = BASE_DIR / "server" / "vendor"
+if str(_VENDOR_DIR) not in sys.path:
+    sys.path.insert(0, str(_VENDOR_DIR))
+try:
+    import segno
+    QR_AVAILABLE = True
+except Exception:
+    QR_AVAILABLE = False
 
 _config_lock = threading.Lock()
 
@@ -220,6 +238,112 @@ def save_config(cfg):
     tmp = cp.with_suffix(".yaml.tmp")
     tmp.write_text(text, encoding="utf-8", newline="\n")
     tmp.replace(cp)
+
+
+# --------------------------------------------------------------------------- #
+# 设备绑定（配对码 / 二维码）
+# --------------------------------------------------------------------------- #
+_BIND = {"code": None, "expires": 0.0}
+_BIND_TTL = 15 * 60  # 配对码有效期（秒）
+
+
+def get_lan_ip():
+    """获取本机局域网 IP（用于二维码里的绑定地址）。"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+    return ip
+
+
+def gen_bind_code():
+    """生成新的配对码（6 位十六进制，如 A1B2C3），通用：手机/电脑均可使用。"""
+    code = secrets.token_hex(3).upper()
+    _BIND["code"] = code
+    _BIND["expires"] = time.time() + _BIND_TTL
+    return code
+
+
+def peek_bind_code():
+    """返回当前有效配对码；过期或不存在则重新生成。"""
+    if not _BIND["code"] or time.time() > _BIND["expires"]:
+        return gen_bind_code()
+    return _BIND["code"]
+
+
+def bind_url(code):
+    port = int(os.environ.get("WB_PORT", "3000"))
+    return "http://%s:%d/bind?code=%s" % (get_lan_ip(), port, code)
+
+
+def make_bind_qr_svg(code):
+    """生成绑定二维码（SVG 字符串）。不可用返回 None。"""
+    if not QR_AVAILABLE:
+        return None
+    try:
+        return segno.make(bind_url(code), error="m").svg_inline(scale=6, border=2)
+    except Exception:
+        return None
+
+
+# 手机扫码落地页：自动带出配对码，点「绑定此设备」即可加入工作台
+BIND_PAGE_HTML = """<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>绑定设备</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:linear-gradient(135deg,#0a0c10,#12161f);color:#e7e9ee;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:rgba(20,24,33,.92);border:1px solid rgba(255,255,255,.13);border-radius:18px;padding:28px 26px;width:380px;max-width:92vw;box-shadow:0 30px 70px rgba(0,0,0,.6);text-align:center}
+  h1{font-size:19px;margin-bottom:6px}
+  .sub{color:#93a0b4;font-size:13px;margin-bottom:20px}
+  .code{font-size:30px;font-weight:700;letter-spacing:3px;color:#fff;background:#0b0e14;border:1px solid rgba(255,255,255,.13);border-radius:12px;padding:12px;margin:10px 0 4px;word-break:break-all}
+  label{display:block;text-align:left;font-size:12px;color:#93a0b4;margin:14px 0 6px}
+  input{width:100%;background:#0b0e14;border:1px solid rgba(255,255,255,.1);color:#e7e9ee;border-radius:10px;padding:11px 12px;font-size:14px;outline:0}
+  input:focus{border-color:#7c83ff;box-shadow:0 0 0 3px rgba(124,131,255,.15)}
+  button{width:100%;margin-top:18px;background:linear-gradient(135deg,#7c83ff,#36c6e0);color:#0a0c10;border:0;border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer}
+  .msg{margin-top:14px;font-size:13px;min-height:18px}
+  .ok{color:#34d399}.bad{color:#f87171}
+</style></head>
+<body><div class="card">
+  <h1>绑定设备到工作台</h1>
+  <div class="sub">扫码后自动带出配对码；也可手动输入</div>
+  <div class="code" id="code">%s</div>
+  <label>配对码（如页面未自动带出，请手动填写）</label>
+  <input id="iCode" placeholder="例如 A1B2C3">
+  <label>设备名称（可选）</label>
+  <input id="iName" placeholder="例如 我的手机 / 客厅电脑">
+  <button onclick="bind()">绑定此设备</button>
+  <div class="msg" id="msg"></div>
+</div>
+<script>
+  var params = new URLSearchParams(location.search);
+  var qc = params.get('code') || '';
+  if(qc){ document.getElementById('code').textContent = qc; document.getElementById('iCode').value = qc; }
+  function bind(){
+    var code = document.getElementById('iCode').value.trim().toUpperCase();
+    var name = document.getElementById('iName').value.trim();
+    var msg = document.getElementById('msg');
+    msg.textContent=''; msg.className='msg';
+    if(!code){ msg.textContent='请填写配对码'; msg.className='msg bad'; return; }
+    var btn = event.target; btn.disabled=true;
+    fetch('/api/bind',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code,name:name})})
+      .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+      .then(function(x){
+        if(!x.ok){ msg.textContent = (x.d&&x.d.detail)||'绑定失败'; msg.className='msg bad'; }
+        else { msg.textContent='绑定成功：'+(x.d.device&&x.d.device.name); msg.className='msg ok'; document.getElementById('iCode').value=''; document.getElementById('iName').value=''; }
+      })
+      .catch(function(e){ msg.textContent='请求异常: '+e; msg.className='msg bad'; })
+      .finally(function(){ btn.disabled=false; });
+  }
+</script></body></html>"""
 
 
 # --------------------------------------------------------------------------- #
@@ -430,6 +554,70 @@ class _Handler(BaseHTTPRequestHandler):
         except Exception as e:
             return self._json(200, {"ok": False, "detail": type(e).__name__})
 
+    # ---------------- 设备绑定（配对码 / 二维码） ----------------
+    def _bind_info(self):
+        code = peek_bind_code()
+        return {
+            "code": code,
+            "qr_url": "/api/bind/qr",
+            "bind_url": bind_url(code),
+            "expires_in": max(0, int(_BIND["expires"] - time.time())),
+            "qr_available": QR_AVAILABLE,
+        }
+
+    def _serve_bind_qr(self):
+        if not QR_AVAILABLE:
+            return self._err(404, "二维码生成不可用（未内置二维码库），请改用配对码绑定")
+        svg = make_bind_qr_svg(peek_bind_code())
+        if not svg:
+            return self._err(404, "二维码生成失败")
+        data = svg.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "image/svg+xml; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        try:
+            self.wfile.write(data)
+        except Exception:
+            pass
+
+    def _bind_device(self, body):
+        code = (body.get("code") or "").strip().upper()
+        if not code or code != (peek_bind_code() or "").upper():
+            return self._err(400, "配对码无效或已过期，请刷新后重试")
+        name = (body.get("name") or "").strip()
+        if not name:
+            name = "设备-%s" % self.client_address[0]
+        with _config_lock:
+            cfg = load_config()
+            ids = {d.get("id") for d in cfg["devices"]}
+            dev_id = unique_id(auto_id(name, self.client_address[0]), ids)
+            dev = {"id": dev_id, "name": name, "host": self.client_address[0],
+                   "deployed": True, "probe_ports": [], "note": "配对码/扫码绑定"}
+            cfg["devices"].append(dev)
+            save_config(cfg)
+        return self._json(200, {"ok": True, "device": dev})
+
+    def _serve_bind_page(self):
+        qs = parse_qs(urlparse(self.path).query)
+        code = (qs.get("code", [""])[0] or "").replace('"', "&quot;").replace("<", "&lt;")
+        try:
+            html = BIND_PAGE_HTML % code
+        except Exception:
+            html = BIND_PAGE_HTML.replace("%s", "")
+        data = html.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        try:
+            self.wfile.write(data)
+        except Exception:
+            pass
+
     # ---------------- 路由 ----------------
     def do_GET(self):
         path = urlparse(self.path).path
@@ -439,6 +627,15 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(200, self._devices_payload())
         if path == "/api/proxy":
             return self._json(200, self._proxy_status())
+        if path == "/api/bind":
+            qs = parse_qs(urlparse(self.path).query)
+            if qs.get("refresh", ["0"])[0] in ("1", "true"):
+                gen_bind_code()
+            return self._json(200, self._bind_info())
+        if path == "/api/bind/qr":
+            return self._serve_bind_qr()
+        if path == "/bind":
+            return self._serve_bind_page()
         return self._err(404, "未找到: %s" % path)
 
     def do_POST(self):
@@ -464,6 +661,8 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "device": dev})
         if path == "/api/proxy/key":
             return self._proxy_key()
+        if path == "/api/bind":
+            return self._bind_device(body)
         seg = [p for p in path.split("/") if p]
         if len(seg) == 4 and seg[0] == "api" and seg[1] == "devices" and seg[3] == "toggle":
             dev_id = unquote(seg[2])

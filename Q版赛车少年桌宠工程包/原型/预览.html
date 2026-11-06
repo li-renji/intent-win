@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>赛车少年桌宠 · 交互原型预览</title>
+<style>
+  :root{
+    --ink:#E9EEFB; --sub:#93A0BE; --line:rgba(255,255,255,.12);
+    --card:rgba(22,27,42,.92); --acc:#FF5A4E; --ok:#5FD0A0;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;overflow:hidden}
+  body{
+    font:14px/1.6 "PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+    color:var(--ink); user-select:none;
+    background:
+      radial-gradient(1200px 700px at 78% 8%, #243352 0%, transparent 60%),
+      radial-gradient(900px 600px at 12% 92%, #3a2440 0%, transparent 62%),
+      linear-gradient(145deg,#101423 0%,#151b2e 45%,#0d1120 100%);
+  }
+  /* 模拟桌面上的其它窗口，用来验证「角色外是透明的」 */
+  .fake-window{
+    position:absolute;border:1px solid var(--line);border-radius:10px;
+    background:rgba(255,255,255,.045);backdrop-filter:blur(2px);
+  }
+  .fw1{left:5%;top:14%;width:270px;height:190px}
+  .fw2{left:6%;bottom:9%;width:210px;height:130px}
+  .fw3{right:5%;top:20%;width:230px;height:160px}
+  .fw-title{height:26px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 10px;font-size:11px;color:var(--sub)}
+  .dot{width:7px;height:7px;border-radius:50%;background:#E8412E;margin-right:6px}
+  .fw-line{height:6px;margin:14px 14px 0;border-radius:3px;background:rgba(255,255,255,.07)}
+
+  .topbar{
+    position:absolute;left:24px;top:20px;z-index:30;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px 18px;max-width:330px;backdrop-filter:blur(10px);
+  }
+  .topbar h1{font-size:15px;font-weight:600;margin:0 0 6px}
+  .topbar p{font-size:12px;color:var(--sub);margin:0 0 10px;line-height:1.7}
+  .keys{display:flex;flex-wrap:wrap;gap:6px}
+  .key{font-size:11px;color:var(--sub);border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--ok);margin-top:10px}
+  .badge i{width:6px;height:6px;border-radius:50%;background:var(--ok);display:inline-block}
+
+  .status{
+    position:absolute;left:24px;bottom:20px;z-index:30;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:10px 14px;font-size:12px;color:var(--sub);min-width:200px;
+  }
+  .status b{color:var(--ink);font-weight:600}
+  .legend{position:absolute;right:24px;bottom:20px;z-index:30;text-align:right;font-size:11px;color:var(--sub);line-height:1.9}
+  .legend b{color:var(--ink)}
+
+  /* 桌宠本体：常驻角色 + 气泡 */
+  #pet{
+    position:absolute;width:240px;height:240px;z-index:20;cursor:grab;
+    left:50%;top:52%;transform:translate(-50%,-50%);
+  }
+  #pet.dragging{cursor:grabbing}
+  #sprite{
+    width:240px;height:240px;display:block;pointer-events:none;
+    filter:drop-shadow(0 12px 14px rgba(0,0,0,.45));
+    transition:opacity .18s ease;
+  }
+  #clip{position:absolute;inset:0;width:240px;height:240px;object-fit:contain;pointer-events:none;display:none;
+        filter:drop-shadow(0 12px 14px rgba(0,0,0,.45))}
+  #pet.playing #sprite{opacity:0}
+  #pet.playing #clip{display:block}
+  /* 静态待机完全静止：不做上下浮动，避免「作为图片时轻微闪动」 */
+
+  #bubble{
+    position:absolute;left:50%;bottom:228px;transform:translateX(-50%) translateY(6px);
+    min-width:120px;max-width:260px;padding:11px 15px;border-radius:14px;
+    background:#fff;color:#20263a;font-size:13px;line-height:1.55;
+    box-shadow:0 10px 28px rgba(0,0,0,.35);
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+    white-space:pre-wrap;text-align:center;
+  }
+  #bubble::after{
+    content:"";position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);
+    border:8px solid transparent;border-top-color:#fff;border-bottom:0;
+  }
+  #bubble.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  #menu{
+    position:absolute;z-index:40;min-width:150px;padding:6px;
+    background:#1b2133;border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 14px 32px rgba(0,0,0,.5);display:none;
+  }
+  #menu.show{display:block}
+  #menu div{padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer}
+  #menu div:hover{background:rgba(255,255,255,.09)}
+  #menu hr{border:0;border-top:1px solid var(--line);margin:5px 2px}
+
+  .compare{
+    position:absolute;right:24px;top:20px;z-index:30;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+  }
+  .compare label{font-size:12px;color:var(--sub);cursor:pointer;display:flex;align-items:center;gap:8px}
+  #oldbox{position:absolute;width:240px;height:240px;background:#fff;border-radius:12px;display:none;z-index:10}
+</style>
+</head>
+<body>
+
+<div class="fake-window fw1"><div class="fw-title"><span class="dot"></span>桌面上的其它窗口</div><div class="fw-line" style="width:70%"></div><div class="fw-line" style="width:88%"></div><div class="fw-line" style="width:55%"></div></div>
+<div class="fake-window fw2"><div class="fw-title"><span class="dot"></span>文件夹</div><div class="fw-line" style="width:60%"></div><div class="fw-line" style="width:80%"></div></div>
+<div class="fake-window fw3"><div class="fw-title"><span class="dot"></span>便签</div><div class="fw-line" style="width:75%"></div><div class="fw-line" style="width:50%"></div></div>
+
+<div class="topbar">
+  <h1>赛车少年桌宠 · 交互原型</h1>
+  <p>用现有素材做的可看版本：真透明角色常驻桌面，点击/双击/拖拽/右键都有反馈。</p>
+  <div class="keys">
+    <span class="key">单击 → 挥手</span><span class="key">双击 → 跳一下</span>
+    <span class="key">拖动 → 移动</span><span class="key">右键 → 菜单</span>
+    <span class="key">闲置 → 随机动作</span>
+  </div>
+  <div class="badge"><i></i>背景真透明，无白色方块</div>
+</div>
+
+<div class="compare">
+  <label><input type="checkbox" id="cmp"> 对比旧版「白块」效果</label>
+</div>
+
+<div id="oldbox"></div>
+
+<div id="pet">
+  <img id="sprite" src="assets/idle.png" alt="赛车少年">
+  <img id="clip" alt="动作">
+  <div id="bubble"></div>
+</div>
+
+<div id="menu">
+  <div data-a="wave">挥个手</div>
+  <div data-a="jump">跳一下</div>
+  <div data-a="think">思考一下</div>
+  <div data-a="sit">坐一会儿</div>
+  <hr>
+  <div data-a="talk">说句话</div>
+  <div data-a="reset">回到原位</div>
+</div>
+
+<div class="status">当前状态：<b id="st">待机 idle</b></div>
+<div class="legend">
+  素材：<b>现有白衣版立绘 + 4 段动作视频</b><br>
+  动作已去白底 → 带透明通道<br>
+  正式版可换成你新做的绿幕素材
+</div>
+
+<script>
+(function(){
+  const pet=document.getElementById('pet'), sprite=document.getElementById('sprite');
+  const clip=document.getElementById('clip'), bubble=document.getElementById('bubble');
+  const st=document.getElementById('st'), menu=document.getElementById('menu');
+  const oldbox=document.getElementById('oldbox'), cmp=document.getElementById('cmp');
+
+  const LINES={
+    wave:['嗨！我在～','怎么啦？','要不要聊两句'],
+    jump:['哇！吓我一跳','来劲了！','再点一下试试'],
+    think:['让我想想…','嗯……','好像有点道理'],
+    sit:['坐一会儿','休息一下下','有点累了'],
+    idle:['今天也要加油呀','我一直都在','要不要摸摸头？'],
+    talk:['等新素材做好，我就能有更多动作啦！']
+  };
+  const LABEL={idle:'待机 idle',wave:'挥手 wave',jump:'跳跃 jump',think:'思考 think',sit:'坐下 sit'};
+  // animated WebP：带 Alpha 的透明动画，浏览器原生播放
+  const CLIPS={wave:'assets/wave.webp',jump:'assets/jump.webp',
+               think:'assets/think.webp',sit:'assets/sit.webp'};
+  const CLIP_MS=5200;   // 61 帧 × 83ms
+  const PRELOAD={};
+  Object.keys(CLIPS).forEach(k=>{const i=new Image();i.src=CLIPS[k];PRELOAD[k]=i});
+
+  let cur='idle', busy=false, bubbleTimer=null, idleTimer=null, clickTimer=null, clipTimer=null;
+  function pick(a){return a[Math.floor(Math.random()*a.length)]}
+  function state(s){cur=s;st.textContent=LABEL[s]||s}
+
+  function say(text,ms){
+    bubble.textContent=text; bubble.classList.add('show');
+    clearTimeout(bubbleTimer);
+    bubbleTimer=setTimeout(()=>bubble.classList.remove('show'),ms||2200);
+  }
+
+  function play(name,line){
+    if(busy)return;
+    busy=true; state(name);
+    pet.classList.add('playing');
+    // 加时间戳强制重新播放动画（animated WebP 默认只播一次）
+    clip.src=CLIPS[name]+'?'+Date.now();
+    say(line||pick(LINES[name]||LINES.idle),2400);
+    clearTimeout(clipTimer);
+    clipTimer=setTimeout(finish,CLIP_MS);
+  }
+  function finish(){
+    clearTimeout(clipTimer);
+    clip.src=''; pet.classList.remove('playing');
+    sprite.src='assets/idle.png'; busy=false; state('idle'); scheduleIdle();
+  }
+
+  function scheduleIdle(){
+    clearTimeout(idleTimer);
+    idleTimer=setTimeout(()=>{
+      if(!busy && !menu.classList.contains('show')) play(Math.random()<.5?'think':'sit');
+    }, 9000+Math.random()*6000);
+  }
+
+  // 单击 / 双击：延迟判定，避免双击同时触发单击；拖拽后不误触发
+  let suppressClick=false;
+  pet.addEventListener('click',(e)=>{
+    if(e.target.closest('#menu')||suppressClick)return;
+    clearTimeout(clickTimer);
+    clickTimer=setTimeout(()=>{ if(!busy)play('wave'); },260);
+  });
+  pet.addEventListener('dblclick',(e)=>{
+    e.preventDefault(); clearTimeout(clickTimer);
+    if(suppressClick)return;
+    if(!busy)play('jump');
+  });
+
+  // 拖拽
+  let drag=null;
+  pet.addEventListener('pointerdown',(e)=>{
+    if(e.button!==0)return;
+    const r=pet.getBoundingClientRect();
+    drag={dx:e.clientX-r.left, dy:e.clientY-r.top,
+          sx:e.clientX, sy:e.clientY, moved:false};
+    pet.setPointerCapture(e.pointerId);
+  });
+  pet.addEventListener('pointermove',(e)=>{
+    if(!drag)return;
+    if(Math.abs(e.clientX-drag.sx)>3||Math.abs(e.clientY-drag.sy)>3)drag.moved=true;
+    const x=e.clientX-drag.dx, y=e.clientY-drag.dy;
+    pet.style.left=x+'px'; pet.style.top=y+'px';
+    pet.style.transform='none';
+    oldbox.style.left=x+'px'; oldbox.style.top=y+'px';
+    pet.classList.add('dragging');
+  });
+  pet.addEventListener('pointerup',(e)=>{
+    if(!drag)return;
+    pet.classList.remove('dragging');
+    if(drag.moved){
+      clearTimeout(clickTimer); state('idle'); say('挪好啦～',1200);
+      suppressClick=true; setTimeout(()=>{suppressClick=false},60);
+    }
+    drag=null;
+  });
+
+  // 右键菜单
+  document.addEventListener('contextmenu',(e)=>{
+    e.preventDefault();
+    menu.style.left=Math.min(e.clientX,innerWidth-170)+'px';
+    menu.style.top=Math.min(e.clientY,innerHeight-230)+'px';
+    menu.classList.add('show');
+  });
+  document.addEventListener('click',(e)=>{
+    if(!e.target.closest('#menu'))menu.classList.remove('show');
+  });
+  menu.addEventListener('click',(e)=>{
+    const a=e.target.getAttribute('data-a'); if(!a)return;
+    menu.classList.remove('show');
+    if(a==='reset'){
+      pet.style.left='50%';pet.style.top='52%';pet.style.transform='translate(-50%,-50%)';
+      oldbox.style.left='';oldbox.style.top='';
+      say('回来啦～',1200);return;
+    }
+    if(a==='talk'){ say(pick(LINES.talk),3200); state('idle'); return; }
+    play(a);
+  });
+
+  // 旧版白块对比
+  function syncOld(){
+    const r=pet.getBoundingClientRect();
+    oldbox.style.left=r.left+'px'; oldbox.style.top=r.top+'px';
+    oldbox.style.display=cmp.checked?'block':'none';
+  }
+  cmp.addEventListener('change',syncOld);
+  addEventListener('resize',syncOld);
+
+  // 开场
+  setTimeout(()=>say('嗨！我是赛车少年～',2600),600);
+  scheduleIdle();
+  syncOld();
+})();
+</script>
+</body>
+</html>

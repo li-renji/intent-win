@@ -7,10 +7,16 @@
 - 内置浏览器：WebView2 独立窗口（按钮唤起）
 - 三端口引擎（6800/6801/6802）后台线程常驻 —— 与奇点OS对齐不变
 """
+# 版本戳：界面与启动日志都会打印，便于一眼确认「跑的是不是最新版」
+APP_VERSION = "intent v0.4 · 构建 1031"
 import asyncio
 import base64
+import functools
 import json
+import atexit
 import os
+import socketserver
+import subprocess
 import sys
 import threading
 import time
@@ -28,7 +34,18 @@ except ImportError:
     )
     sys.exit(2)
 
-from .browser.webview2 import WebView2Adapter
+# 让主窗口使用本体自带的 WebView2 运行时，而不是系统预装的 Evergreen。
+# 必须在 create_window 之前设置：pywebview 在建 EdgeChrome 时才读这个 setting。
+try:
+    from mybrowser.runtime_paths import webview2_runtime_dir as _wv2_dir
+    _wv2 = _wv2_dir()
+    if _wv2:
+        webview.settings["WEBVIEW2_RUNTIME_PATH"] = _wv2
+        os.environ.setdefault("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", _wv2)
+except Exception:
+    pass
+
+from .browser.mybrowser_adapter import MyBrowserAdapter
 from .config import active_llm, load_config, save_settings
 from .history import SessionHistory
 from .kb import KnowledgeBase
@@ -41,6 +58,7 @@ from .pc_bridge import PCBridge
 from .prompts import build_system_prompt
 from .servers import Context, serve_6800, serve_6801, serve_6802
 from .tools import ToolBus
+from .companions import CompanionManager
 
 
 def _ui_path():
@@ -50,6 +68,54 @@ def _ui_path():
 def _bg_path():
     """背景图持久化文件（ui/bg.json），存放当前选中的预设名或上传图片的 dataURL。"""
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "bg.json")
+
+
+def _single_instance_lock(project_root):
+    """单实例锁：启动时强杀任何旧的 agent.app 进程，确保跑的一定是最新代码。
+
+    返回本次写入的 pid 文件路径（供 atexit 清理）；若无法加锁则返回 None。
+    仅杀「命令行确实含 agent.app」的 python 进程，绝不误伤其它程序。
+    """
+    import subprocess as _sp
+    pid_file = os.path.join(project_root, ".run.pid")
+    cur = os.getpid()
+    # 1) 读旧 pid，确认它确实属于 agent.app 后再强杀
+    old = None
+    try:
+        with open(pid_file, "r", encoding="utf-8") as f:
+            old = int(f.read().strip())
+    except Exception:
+        old = None
+    if old and old != cur:
+        try:
+            out = _sp.run(
+                ["powershell", "-NoProfile", "-Command",
+                 "(Get-CimInstance Win32_Process -Filter 'ProcessId=%d' "
+                 "-ErrorAction SilentlyContinue).CommandLine" % old],
+                capture_output=True, text=True, timeout=10).stdout
+            if out and "agent.app" in out:
+                _sp.run(["taskkill", "/F", "/PID", str(old)],
+                        capture_output=True, timeout=10)
+        except Exception:
+            pass
+    # 2) 兜底：杀掉所有命令行含 agent.app、且不是本次进程的 python
+    try:
+        _sp.run(
+            ["powershell", "-NoProfile", "-Command",
+             "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" "
+             "-ErrorAction SilentlyContinue | Where-Object { $_.CommandLine "
+             "-like '*agent.app*' -and $_.ProcessId -ne %d } | "
+             "ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" % cur],
+            capture_output=True, timeout=15)
+    except Exception:
+        pass
+    # 3) 写入本实例 pid
+    try:
+        with open(pid_file, "w", encoding="utf-8") as f:
+            f.write(str(cur))
+        return pid_file
+    except Exception:
+        return None
 
 
 class Api:
@@ -70,6 +136,12 @@ class Api:
         self.kb = KnowledgeBase(cfg["project_root"])
         # 长期记忆（跨会话持久化）：结构化条目 + 自动捕获 + 按提问召回
         self.memory = MemoryStore(cfg["project_root"])
+        # companion 插件（如「阿觉」）：通用 Agent 只负责发现与拉起，
+        # 不含任何人格逻辑 —— 人格属于插件，宿主保持通用。
+        self.companions = CompanionManager(cfg)
+        # 记忆生长节拍：synthesize() 把同 tag 的多条 L1 自动聚合成 L2 场景卡
+        self._turn_count = 0
+        self._synth_gap = 5          # 每 N 轮兜底跑一次聚合（即使本轮无新增）
         # 电脑文件桥（默认不启动；UI「📱 电脑文件桥」一键开启）
         # kb 传入文件桥：手机端经 /kb/search 共用同一份知识库索引
         token_file = os.path.join(cfg["project_root"], cfg.get("pc_bridge_token_file",
@@ -183,6 +255,7 @@ class Api:
             "llm_mode": self.cfg["llm_mode"],
             "base_url": self.cfg["base_url"],
             "model": self.cfg["model"],
+            "app_version": APP_VERSION,
             "api_key": self.cfg.get("api_key", ""),
             "llm_base_url": self.cfg["llm_base_url"],
             "llm_model": self.cfg["llm_model"],
@@ -602,9 +675,12 @@ class Api:
             mem_block = self.memory.inject(text)
         except Exception:
             mem_block = ""
+        new_this_turn = 0
         try:
             for body, kind in _auto_capture_memories(text):
-                self.memory.add(body, kind=kind, source="auto")
+                ok, _msg = self.memory.add(body, kind=kind, source="auto")
+                if ok:
+                    new_this_turn += 1
         except Exception:
             pass
         parts = [system]
@@ -722,6 +798,18 @@ class Api:
         self.history.add_turn(text, reply, tool_names)
         d["facts"] = self.history.get_facts()
         self._persist(cid, d)
+        # 记忆生长：本轮有新增 L1，或达到兜底节拍（每 _synth_gap 轮）时，
+        # 把同 tag 的多条 L1 自动聚合成 L2 场景卡（对应 TencentDB 的 L2 Scenario）。
+        # synthesize 幂等：tag 不足阈值 / 已有 L2 时返回 0，不会重复造卡。
+        self._turn_count += 1
+        if new_this_turn > 0 or self._turn_count % self._synth_gap == 0:
+            try:
+                made = self.memory.synthesize()
+                if made and made > 0:
+                    self._push('window.__onNotice(%s)',
+                               "记忆已沉淀：自动归纳出 %d 张场景卡（L2）" % made)
+            except Exception:
+                pass
         self._push('window.__onDone(%s)', d["title"])
 
     # ================= 工作台快捷入口 =================
@@ -902,6 +990,17 @@ class Api:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    def mem_synthesize(self, min_hits=3):
+        """手动触发 L1→L2 聚合：把同 tag、高频命中的多条 L1 提炼为场景卡。
+
+        返回本轮新生成的 L2 条数（供 UI 反馈 / 调试）。
+        """
+        try:
+            made = self.memory.synthesize(min_hits=int(min_hits))
+            return {"ok": True, "made": made, "stats": self.memory.stats()}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
     # ================= 知识库 =================
 
     def kb_ingest(self, paths=None):
@@ -986,6 +1085,16 @@ class Api:
         except Exception:
             pass
         return {"ok": True, "msg": ("工作台已启动：" if started else "工作台已在运行：") + url}
+
+    def workbench_status(self):
+        """返回工作台运行状态（只探测，不拉起）。供前端设置面板显示实时状态。"""
+        root = os.path.join(self.cfg["project_root"], "workbench")
+        script = os.path.join(root, "server", "app.py")
+        return {
+            "running": _port_alive("127.0.0.1", 3000),
+            "url": "http://localhost:3000",
+            "installed": os.path.exists(script),
+        }
 
     # ================= 电脑文件桥（手机 ⇄ 电脑） =================
 
@@ -1078,7 +1187,10 @@ class Api:
             self.bus.enabled(),
             skills_dir=os.path.join(self.cfg["project_root"], "skills"))
         facts = self.history.inject()
-        return system + ("\n" + facts if facts else "")
+        parts = [system]
+        if facts:
+            parts.append(facts)
+        return "\n".join(parts)
 
     def _ctx_source(self):
         """当前容量是怎么来的：manual=手动指定 / vendor=厂商声明 / table=型号查表 / default=保守默认。"""
@@ -1298,14 +1410,64 @@ class Api:
 
     # ================= 浏览器 =================
 
+    def _browser_boot(self, url=None, timeout=12):
+        """后台启动浏览器并（可选）一步直达目标页。
+
+        浏览器启动是同步阻塞操作，直接在 pywebview 的 js_api 线程里调用会
+        卡住整个界面（表现为「窗口打不开 / 无法交互 / Python 假死」）。
+        这里放到后台线程 + 主线程最多等 timeout 秒，超时也立即返回，
+        后台继续完成后启动，绝不长时间占住 UI。
+        """
+        import threading as _th
+        box = {}
+
+        def _boot():
+            try:
+                if url:
+                    try:
+                        box["ok"] = bool(self.browser.start(url))
+                    except TypeError:
+                        # 兼容不接受 start_url 的旧适配器：退回「启动 + 再导航」
+                        box["ok"] = bool(self.browser.start())
+                        if box["ok"]:
+                            self.browser.execute("NAVIGATE " + url)
+                else:
+                    box["ok"] = bool(self.browser.start())
+                box["err"] = self.browser.error
+            except Exception as e:
+                box["ok"] = False
+                box["err"] = str(e)
+
+        t = _th.Thread(target=_boot, daemon=True)
+        t.start()
+        t.join(timeout=timeout)
+        if t.is_alive():
+            return {"ok": True, "pending": True, "msg": "浏览器正在启动，稍等片刻…"}
+        if box.get("ok"):
+            return {"ok": True, "msg": "内置浏览器已就绪。"}
+        return {"ok": False, "msg": box.get("err") or "浏览器启动失败"}
+
     def open_browser(self):
         if self.browser.available():
+            try:
+                self.browser.show()
+            except Exception:
+                pass
             return {"ok": True, "msg": "内置浏览器已打开。"}
-        ok = self.browser.start()
-        return {"ok": ok, "msg": "浏览器已打开。" if ok else (self.browser.error or "浏览器启动失败")}
+        r = self._browser_boot()
+        if r["ok"]:
+            try:
+                self.browser.show()
+            except Exception:
+                pass
+        return r
 
     def open_url(self, q):
-        """标题旁搜索/网址入口：识别 URL 或拼搜索词，内置浏览器优先、系统浏览器兜底。"""
+        """标题旁搜索/网址入口：识别 URL 或拼搜索词，内置浏览器优先、系统浏览器兜底。
+
+        关键修复：把目标 url 直接交给 browser.start(url) **一步直达**搜索结果页，
+        不再「先开百度主页再跳」；启动放后台线程加超时，避免界面假死。
+        """
         import re as _re
         import urllib.parse as _up
         q = (q or "").strip()
@@ -1320,19 +1482,13 @@ class Api:
         if self.browser.available():
             try:
                 self.browser.execute("NAVIGATE " + url)
+                self.browser.show()
                 return {"ok": True, "msg": "已在内置浏览器打开：" + url}
             except Exception:
                 pass
-        try:
-            ok = self.browser.start()
-            if ok:
-                try:
-                    self.browser.execute("NAVIGATE " + url)
-                    return {"ok": True, "msg": "已在内置浏览器打开：" + url}
-                except Exception:
-                    pass
-        except Exception:
-            pass
+        r = self._browser_boot(url)
+        if r["ok"]:
+            return {"ok": True, "msg": "已在内置浏览器打开：" + url}
         import webbrowser as _wb
         try:
             _wb.open(url)
@@ -1359,6 +1515,28 @@ class Api:
         """列出已安装与货架上的技能 / 插件。"""
         try:
             return {"ok": True, "data": market.list_all()}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    # ---------- companion 插件（人格类扩展，如「阿觉」）：发现与启停 ----------
+    def companions_list(self):
+        """列出已安装的 companion 插件及其运行状态。"""
+        try:
+            return {"ok": True, "items": self.companions.discover()}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def companion_start(self, pid):
+        """拉起一个 companion 插件（例如让阿觉的桌宠出现在桌面上）。"""
+        try:
+            return self.companions.start(pid)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def companion_stop(self, pid):
+        """停掉一个 companion 插件。"""
+        try:
+            return self.companions.stop(pid)
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
@@ -1761,8 +1939,18 @@ def _boot_gui(api, win=None):
 
 def main():
     cfg = load_config()
+    # 单实例：先强杀任何旧的 agent.app 进程，保证本次跑的一定是最新代码
+    _pid_file = _single_instance_lock(cfg["project_root"])
+    if _pid_file:
+        def _rm_pid():
+            try:
+                os.remove(_pid_file)
+            except Exception:
+                pass
+        atexit.register(_rm_pid)
+    print("[Intent-Win] 启动版本：%s" % APP_VERSION)
     bus = ToolBus(cfg)
-    browser = WebView2Adapter(cfg)
+    browser = MyBrowserAdapter(cfg)
     bus.attach_browser(browser.execute)
     history = SessionHistory(cfg["history_facts_n"], cfg["summary_max_chars"])
 
@@ -1807,6 +1995,10 @@ def main():
         print("[本地引擎] " + ("就绪 %s" % api.engine.endpoint() if ok_auto
                                else "启动失败：" + msg_auto))
 
+    # 主窗口 UI：直接加载本地 index.html（file://）
+    # 说明：pywebview 6.2.1 的 create_window 不暴露 on_closing 参数；
+    # 窗口关闭后 webview.start() 会自然返回、main() 结束、进程退出
+    #（全部后台线程均为 daemon），故无需显式 on_closing 即可「关窗即退出」。
     w = webview.create_window(
         "intent",
         _ui_path(),
@@ -1820,8 +2012,41 @@ def main():
     # .NET WebView2 对象（.Bounds.Empty.Empty… 无限递归）就会跨线程访问 COM 并
     # 抛 RecursionError，导致窗口创建失败、进程启动即退出。窗口引用只通过
     # webview.start 的 args 私下传递。
-    webview.start(_boot_gui, args=(api, w), gui="edgechromium")
+    # companion 插件（如「阿觉」桌宠）：默认不随软件启动自动拉起。
+    # 桌宠应在「市场 -> 桌宠 -> 唤醒」里由用户手动启动；
+    # 需要恢复自动拉起时，在 配置.qdai 设 companion_autostart=true。
+    if cfg.get("companion_autostart", False):
+        def _start_companions():
+            time.sleep(2.0)
+            try:
+                for r in api.companions.start_all():
+                    if r.get("ok"):
+                        print("[插件] 已拉起 companion：%s" % (r.get("name") or r.get("id")))
+            except Exception as e:
+                print("[插件] companion 拉起失败：%s" % e)
+        threading.Thread(target=_start_companions, daemon=True).start()
+
+    try:
+        webview.start(_boot_gui, args=(api, w), gui="edgechromium")
+    except Exception as _e:                       # WebView2 初始化失败等，避免静默退出
+        sys.stderr.write(
+            "\n[启动失败] 桌面窗口引擎启动异常：%s\n"
+            "   多半是 Microsoft Edge WebView2 运行时缺失或异常。\n"
+            "   下载安装（选「下载并安装运行时」）：\n"
+            "   https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/\n" % _e
+        )
+        sys.exit(3)
     api.bridge.stop()   # 窗口关闭 → 停桥（关窗即断，手机立刻失去访问）
+    # companion 插件随宿主一起退场：它完全依赖宿主
+    try:
+        api.companions.stop_all()
+    except Exception:
+        pass
+    # companion 插件（如「阿觉」）随宿主一起退场：它完全依赖宿主
+    try:
+        api.companions.stop_all()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

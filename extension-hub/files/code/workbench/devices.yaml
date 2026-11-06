@@ -1,0 +1,24 @@
+# 设备统一管理工作台 - 设备清单配置
+# 本文件由工作台面板自动维护: 在面板上「添加 / 编辑 / 删除设备」会写回这里。
+# host: 设备 IP (局域网内设备填局域网 IP; 本机写 127.0.0.1)
+# deployed: true  = 已部署, 按 probe_ports 探活
+#           false = 占位登记 (尚未部署到设备上), 不探活, 状态显示"未部署"
+# probe_ports: 探活端口列表, [端口, 用途标签]
+
+devices:
+  - id: intent-win
+    name: INTENT-win (Windows Agent)
+    host: 127.0.0.1
+    deployed: true
+    probe_ports:
+      - [6800, 对话]
+      - [6801, 工具总线]
+      - [6802, 对外API]
+      - [8899, 文件桥]
+      - [9997, 手机网关]
+    note: 奇点 Windows Agent (qd-agent-win), 本机 192.168.3.13
+
+# API 中转 (LiteLLM) 地址, 供前端展示连接状态
+api_proxy:
+  base_url: 'http://127.0.0.1:4000'
+  admin_key: ''

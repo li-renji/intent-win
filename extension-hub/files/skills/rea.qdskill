@@ -1,0 +1,45 @@
+name: rea
+version: 0.1
+desc: 逆向工程分析（rea / Reverse Engineer Anything，官方包 morluto/rea，MIT）：对 JS/Electron 应用、.NET 程序集、Android APK、网站、HAR 网络包、PE/ELF 等做静态逆向与行为分析，返回带证据的结论。原生二进制深度反编译需本机已装 Ghidra/Hopper/IDA。
+
+# 逆向工程分析（rea）
+
+触发词：反编译 / 逆向 / 分析这个程序 / 分析这个 app / 看看它是怎么实现的 / 提取它的逻辑 / 逆向这个 exe / 分析这个 apk / 拆解这个网站
+
+重要：本技能通过 code 工具调用官方 CLI 包 **rea-agents**（官方仓库 morluto/rea，MIT 协议）。
+- 严禁替换为任何第三方 fork（rea 爆火后出现了带木马的仿冒包）。
+- 首次运行需联网下载 rea 包（npm 缓存到磁盘，约几百 MB，非内存）。
+- 仅用于学习、安全研究、理解软件实现；遵守法律与授权，不用于破解未授权/付费软件。
+- rea 进程为一次性 CLI，分析完即退出，不会常驻内存。
+
+## 步骤（code 工具，lang=shell；cwd 为项目根 D:\INTENT-win）
+
+0. 先看本机可用命令（应对不同版本子命令名差异）：
+   cmd /c npx -y rea-agents@latest --help
+1. 确认运行环境：
+   cmd /c node --version
+   若低于 22.23.4：提示用户升级 Node；仍可尝试 npx 试运行（npm 通常只警告不拦截）。
+2. 按目标类型选择命令（均加 --json 输出结构化结果，便于解析；路径用绝对路径，Windows 用英文引号包裹）：
+   - JS / Electron 应用目录：
+     cmd /c npx -y rea-agents@latest analyze-javascript-application "<绝对路径>" --json
+   - .NET 程序集（.exe / .dll）：
+     cmd /c npx -y rea-agents@latest analyze-dotnet-assembly "<绝对路径>" --json
+   - Android APK：
+     cmd /c npx -y rea-agents@latest analyze-android-apk "<绝对路径>" --json
+     （需 JADX + JDK；缺失则先装，rea 会提示）
+   - 网站：
+     cmd /c npx -y rea-agents@latest analyze-website "<url>" --json
+     （需 Chrome 系浏览器）
+   - HAR / 网络抓包：
+     cmd /c npx -y rea-agents@latest analyze-har "<绝对路径>" --json
+   - 原生二进制（exe / dll / ELF / Mach-O，需 Ghidra / Hopper / IDA 之一）：
+     cmd /c npx -y rea-agents@latest analyze-native-binary "<绝对路径>" --json
+     （未装引擎时只能做静态检查；提示用户装 Ghidra：https://ghidra-sre.org ，免费）
+3. 解析返回的 JSON，提取关键发现（模块、IPC、路由、导入表、证书、行为、伪代码），把结论 + 证据来源 清晰回给用户。
+4. 若命令失败：检查 Node 版本、目标路径、以及该目标所需的外部引擎是否已装；把报错原文回给用户以便判断。
+
+## 说明
+
+- 本机无 Ghidra / Hopper / IDA 时，原生二进制只能静态分析，无法深度反编译；其余目标（JS/.NET/APK/网站/HAR/PE 静态/ML 模型/WASM）不受影响，开箱即用。
+- 各 analyze 子命令名可能因 rea 版本略有差异，以第 0 步 --help 输出为准。
+- rea 每个结论都带"证据来源"，并会诚实列出"未能搞清的部分"，请如实转达，不要编造。

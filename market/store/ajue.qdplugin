@@ -1,0 +1,8 @@
+name: 阿觉 · 个人生活智能体
+id: ajue
+version: 0.7
+kind: companion
+desc: 装上这个插件后，桌宠「阿觉」会常驻在你的桌面上。它运行在本机、只服务你一个人（但可以联网），能读取你的上下文与各工作区的会话，拥有完全独立的记忆，并完全依赖通用 Agent 智能体提供模型与能力。日常请直接对桌宠说话，而不是在通用 Agent 的对话框里。
+data_dir: plugin_data/ajue
+entry: runner.py
+ui: pet

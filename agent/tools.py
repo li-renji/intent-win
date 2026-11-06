@@ -14,6 +14,8 @@ import shutil
 import subprocess
 
 from . import econ
+from . import safety
+from .safety import SecurityError
 
 
 def _fmt_size(n):
@@ -59,7 +61,9 @@ TOOL_SCHEMAS = {
             "name": "browser",
             "description": (
                 "控制内置浏览器（WebView2）。命令为一行文本协议："
-                "NAVIGATE <url> 导航；SNAPSHOT 取可交互元素编号表+正文摘要；"
+                "NAVIGATE <url或搜索词> 直接导航（网址开网页、搜索词开搜索结果页，直达不绕主页）；"
+                "SEARCH <关键词> 直接搜索并打开结果页；"
+                "SNAPSHOT 取可交互元素编号表+正文摘要；"
                 "CLICK <编号> 点击；TYPE <编号> <文本> 填表；"
                 "SCROLL down|up|top|bottom 滚动；BACK/FORWARD/RELOAD 导航；"
                 "READ 只取正文纯文本（最省 token）。"
@@ -357,6 +361,7 @@ def _parse_qdplugin(path):
         desc: 获取本机系统与内存信息
         run:  powershell -NoProfile -Command "..."
         params: （可选）逗号分隔的参数名，均按 string 处理
+        timeout: （可选）本插件命令最长执行秒数，默认 60，上限 600
     run 里的 @ROOT@ 替换为项目根，@参数名@ 替换为调用时传入的值。
     """
     try:
@@ -373,10 +378,15 @@ def _parse_qdplugin(path):
             break
         k, v = s.split(":", 1)
         k = k.strip().lower()
-        if k in ("name", "id", "desc", "run", "params", "version"):
+        if k in ("name", "id", "desc", "run", "params", "version", "timeout",
+                 "kind", "data_dir", "entry", "ui"):
             head[k] = v.strip()
         else:
             break
+    # companion 类插件（如「阿觉」）不是工具：由 companions.py 发现并拉起进程，
+    # 不注册进 ToolBus（否则模型会把它当工具去调用）。
+    if (head.get("kind") or "tool").strip().lower() == "companion":
+        return None
     tool = (head.get("id") or "").strip()
     run = (head.get("run") or "").strip()
     if not tool or not run:
@@ -394,7 +404,12 @@ def _parse_qdplugin(path):
             "parameters": {"type": "object", "properties": props, "required": required},
         },
     }
-    return tool, schema, run
+    try:
+        timeout = int(head.get("timeout") or 60)
+    except (TypeError, ValueError):
+        timeout = 60
+    timeout = max(5, min(timeout, 600))
+    return tool, schema, run, timeout
 
 
 class ToolBus:
@@ -426,27 +441,27 @@ class ToolBus:
             parsed = _parse_qdplugin(os.path.join(_PLUGINS_DIR, fn))
             if not parsed:
                 continue
-            tool, schema, run = parsed
+            tool, schema, run, timeout = parsed
             if tool in self.handlers:
                 continue  # 不覆盖内置同名工具
             self.extra_schemas[tool] = schema
-            self.handlers[tool] = lambda a, _r=run: self._run_plugin(_r, a)
+            self.handlers[tool] = lambda a, _r=run, _t=timeout: self._run_plugin(_r, a, _t)
 
-    def _run_plugin(self, run_cmd, args):
-        """执行插件声明的命令：@ROOT@ 换项目根，@参数名@ 换入参。"""
+    def _run_plugin(self, run_cmd, args, timeout=60):
+        """执行插件声明的命令：@ROOT@ 换项目根，@参数名@ 换入参；timeout 由插件头声明（默认 60s）。"""
         cmd = run_cmd.replace("@ROOT@", _PROJECT_ROOT_TPL)
         for k, v in (args or {}).items():
             cmd = cmd.replace("@%s@" % str(k).upper(), str(v))
             cmd = cmd.replace("@%s@" % str(k), str(v))
         try:
             p = subprocess.run(cmd, shell=True, capture_output=True, text=True,
-                               timeout=60, encoding="utf-8", errors="replace")
+                               timeout=timeout, encoding="utf-8", errors="replace")
             out = p.stdout or ""
             if p.stderr:
                 out += "\n[stderr]\n" + p.stderr
             return out.strip() or "(命令无输出)"
         except subprocess.TimeoutExpired:
-            return "插件命令超时（60 秒）"
+            return "插件命令超时（%d 秒）" % timeout
         except Exception as e:
             return "插件执行失败: %s" % e
 
@@ -470,6 +485,8 @@ class ToolBus:
             return False, "工具未启用或不存在: %s" % name
         try:
             result = str(fn(args or {}))
+        except SecurityError as e:
+            return False, str(e)
         except Exception as e:
             return False, "工具执行失败: %s" % e
         result, _cut = econ.truncate_middle(result, self.max_chars)
@@ -513,7 +530,13 @@ class ToolBus:
         p = os.path.expanduser(p)
         if not os.path.isabs(p):
             p = os.path.join(self.cfg["project_root"], p)
-        return os.path.normpath(p)
+        resolved = os.path.normpath(p)
+        # 安全校验：凭证 / 私钥 / 浏览器密码库等敏感路径不走文件工具，
+        # 否则内容会作为 tool 结果回灌，并在下一轮随 messages 发往云端。
+        allowed, rule, _ = safety.guard_path(resolved, self.cfg)
+        if not allowed:
+            raise SecurityError(safety.path_error(rule))
+        return resolved
 
     def _tool_fs(self, args):
         op = str(args.get("op", "list")).strip().lower()

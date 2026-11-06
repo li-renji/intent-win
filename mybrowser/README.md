@@ -320,7 +320,90 @@ bus.attach_browser(make_dispatch(browser))
 
 ---
 
-## 9. 后续路线
+## 9. 参考 Lightpanda 后新增的「AI 浏览器」能力
+
+`D:\Lightpanda`（GitHub `lightpanda-io/browser`）是一个用 Zig 写的、专为
+AI / 自动化设计的**无头浏览器**——它不渲染界面、原生只支持 Linux/macOS，
+所以**无法**替换 MyBrowser 的渲染内核（MyBrowser 借的是真 Chromium/WebView2）。
+
+但 Lightpanda 的设计思想非常值得借鉴。已把它的三条主线**参考并落地**进
+MyBrowser，让 MyBrowser 既是你的 GUI 浏览器，也是面向 Agent 的浏览器：
+
+| Lightpanda 原版 | MyBrowser 对应实现 | 文件 |
+|---|---|---|
+| `fetch --dump html/markdown/text/structured_data` | `DUMP` 指令，5 种格式 | `core/dump.py` |
+| `agent --trace`（每步 1 行 JSON） | `TRACE` + `RECORD TRACE` | `trace.py` |
+| `agent /save`（PandaScript 可重放脚本） | `RECORD SAVE` + `REPLAY` | `trace.py` |
+| `serve`（把浏览器暴露成 CDP 服务器） | `SERVE` 指令 + `net/cdpserver.py` | `net/cdpserver.py` |
+
+## 9.1 DUMP —— 对齐 `fetch --dump`
+
+```
+DUMP <格式> [max_chars]     格式: markdown(默认) / html / text / links / structured
+```
+
+- `markdown`：把页面清洗后转成可读 markdown（自研 HTML→MD 转换器，零依赖）
+- `structured`：抽取 JSON-LD / OpenGraph / Twitter Card / meta / canonical
+  （Lightpanda 的 `structured_data` 等价物）
+- `links`：所有链接（文本 + href，去重）
+
+## 9.2 TRACE / RECORD / REPLAY —— 对齐 `agent --trace` + `/save` PandaScript
+
+```
+TRACE on|off|status          开始/停止/查看 录制
+RECORD SAVE <脚本.js>        导出 PandaScript（确定性、零 token，可重放）
+RECORD TRACE <trace.jsonl>   导出逐步 trace（1 行 JSON/步）
+RECORD clear                 清空录制
+REPLAY <脚本.js>             把脚本重新喂给浏览器，确定性复现整段操作
+```
+
+录制的每一步会被自动写入 Agent 的协议执行（见 `agent_tool.execute`），
+无需改动任何调用方。导出的 PandaScript 形如：
+
+```js
+// MyBrowser PandaScript
+navigate("https://x.com")
+search("天气")
+snapshot()
+click(e12)
+type(e12, "hello world")
+press("Enter")
+```
+
+`REPLAY` 会把每一行原语还原成 `NAVIGATE/SEARCH/...` 指令重新执行。
+
+## 9.3 SERVE —— 对齐 `serve`（CDP 服务器）
+
+```
+SERVE [port=9223]
+python -m mybrowser --serve 9223          # headless 模式下同时起 CDP 服务器
+python -m mybrowser --serve 9223          # GUI 模式下也支持
+```
+
+把 MyBrowser 暴露成一个**标准 CDP-over-WebSocket 服务器**，于是
+Puppeteer / Playwright / 任意 CDP 客户端都能直接驱动它：
+
+```js
+const browser = await puppeteer.connect({
+  browserWSEndpoint: "ws://127.0.0.1:9223/devtools/browser"
+});
+```
+
+服务器实现是**桥（bridge）**：外面说 CDP，里面也是 CDP，命令直接转发给底层
+Chromium（经 MyBrowser 自研 CDP 客户端），无需逐条实现 CDP 方法。
+
+额外提供 **`MyBrowser.*` 自定义域**（Lightpanda 没有，是 MyBrowser 的差异化能力）：
+
+| 命令 | 说明 |
+|---|---|
+| `MyBrowser.ping` | 探活 |
+| `MyBrowser.snapshot` | 取 AX 语义快照（稳定 ref + 差分） |
+| `MyBrowser.dump`   | 取页面（markdown/html/text/structured） |
+| `MyBrowser.trace`  | 控制录制（action: on/off/save） |
+
+HTTP 发现端点与 Chrome 一致：`/json/version`、`/json`、`/json/new?url=`、`/json/close/<id>`。
+
+# 10. 后续路线
 
 - [ ] **多标签 UI 完整实现**：目前 `ui/shell.py` 已有多标签框架，
       待补：标签关闭/切换、下载管理、书签面板、隐私窗口

@@ -8,8 +8,8 @@ if %errorlevel%==0 (
   start "" http://localhost:3000
   exit /b 0
 )
-set PY=python
-if exist "C:\Users\renji\.workbuddy\binaries\python\versions\3.13.12\python.exe" set PY=C:\Users\renji\.workbuddy\binaries\python\versions\3.13.12\python.exe
+set "PY=python"
+if exist "%~dp0..\runtime\python\python.exe" set "PY=%~dp0..\runtime\python\python.exe"
 start "workbench" cmd /k ""%PY%" server\app.py"
 ping -n 3 127.0.0.1 >nul
 start "" http://localhost:3000

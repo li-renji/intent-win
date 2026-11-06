@@ -98,12 +98,19 @@ def create_environment(port, user_data_folder=None, extra_args=None):
 
     opts = CoreWebView2EnvironmentOptions()
     args = ["--remote-debugging-port=%d" % port]
-    if user_data_folder:
-        args.append("--user-data-dir=%s" % user_data_folder)
     if extra_args:
         args.extend(extra_args)
     opts.AdditionalBrowserArguments = " ".join(args)
 
-    task = CoreWebView2Environment.CreateAsync(None, None, opts)
+    # ⚠️ user_data_folder 必须作为 CreateAsync 的「第 2 参数」传入才真正生效：
+    # WebView2 经常忽略命令行里的 --user-data-dir，只认 CreateAsync 的这个参数。
+    # 否则每次都用默认临时目录，cookie/登录态无法持久化，且可能与同进程其它
+    # WebView2（主聊天窗口）的默认目录撞车。
+    udf = user_data_folder or None
+    # 第 1 参数 = browserExecutableFolder：指向本体自带的 WebView2 运行时，
+    # 缺失时才回退 None（用系统 Evergreen）。这样自研窗口模式同样不借系统浏览器。
+    from ..runtime_paths import webview2_runtime_dir
+    task = CoreWebView2Environment.CreateAsync(
+        webview2_runtime_dir() or None, udf, opts)
     # pythonnet 必须同步等待 Task，否则拿不到实体对象
     return task.GetAwaiter().GetResult()

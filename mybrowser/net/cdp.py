@@ -177,6 +177,12 @@ class CDPClient:
             self._any_handlers.append(handler)
         return handler
 
+    def off_any(self, handler):
+        """取消 on_any 订阅。"""
+        with self._lock:
+            if handler in self._any_handlers:
+                self._any_handlers.remove(handler)
+
     def off(self, method, handler):
         with self._lock:
             fns = self._handlers.get(method)

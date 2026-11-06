@@ -100,6 +100,25 @@ def load_config(path=None):
         "browser_width": intv("browser_width", 1280),
         "browser_height": intv("browser_height", 860),
         "snapshot_max_chars": intv("snapshot_max_chars", 3500),
+        # 自研浏览器 MyBrowser（browser-upgrade 升级包）：这些键必须显式透出，
+        # 否则 配置.qdai 里追加的 mybrowser_* 会被白名单丢弃、配置永远不生效。
+        "browser_headless": flag("browser_headless", False),
+        "mybrowser_ui": flag("mybrowser_ui", True),
+        "mybrowser_embed": flag("mybrowser_embed", True),
+        "mybrowser_preheat": flag("mybrowser_preheat", True),
+        "mybrowser_serve": flag("mybrowser_serve", False),
+        "mybrowser_serve_port": intv("mybrowser_serve_port", 9223),
+        "mybrowser_cdp_port": intv("mybrowser_cdp_port", 9700),
+        "mybrowser_proxy": cfg.get("mybrowser_proxy", "direct"),
+        "mybrowser_search_engine": cfg.get("mybrowser_search_engine", ""),
+        "mybrowser_profile_dir": cfg.get("mybrowser_profile_dir", ""),
+        # 桌宠（companion 插件）是否随软件启动自动拉起；默认关，由界面「唤醒」手动启动
+        "companion_autostart": flag("companion_autostart", False),
+        # 安全校验：出站隐私闸门 / 敏感路径拦截 / 审计日志（白名单必须显式透出）
+        "safety_mode": cfg.get("safety_mode", "enforce"),
+        "safety_mask_pii": flag("safety_mask_pii", True),
+        "safety_audit_log": flag("safety_audit_log", True),
+        "safety_allow_hosts": cfg.get("safety_allow_hosts", ""),
         # 工作台入口：侧栏「工作台」按钮是否显示（0/False=剥离工作台，仅用聊天 Agent）
         "workbench_enabled": flag("workbench_enabled", True),
         # 玻璃材质：glass=整体玻璃效果开关，refract=折射层开关（折射较吃性能）

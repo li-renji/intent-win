@@ -1,0 +1,49 @@
+name: workbench
+version: 0.4
+desc: 设备统一管理工作台：说"打开工作台"即拉起设备管理面板（http://localhost:3000）并打开浏览器；可查看/添加/编辑/删除被管设备状态与 API 中转
+trigger: 打开工作台,进入工作台,启动工作台,开启工作台,把工作台打开,工作台打开,打开设备工作台,打开设备管理
+action: code
+run: cmd /c "@ROOT@/workbench/wb_start.cmd"
+
+# 设备统一管理工作台（workbench）
+
+触发词：打开工作台 / 进入工作台 / 启动工作台 / 打开设备管理 / 添加设备 / 添加新设备 / 接入设备
+
+重要：本工作台是网页面板 http://localhost:3000，**不是**桌面上任何名为 WorkBuddy 的窗口。
+收到上述指令时直接执行下面第 1 步即可，无需先截图查屏或搜索本机应用。
+
+部署位置：D:\INTENT-win\workbench
+面板地址：http://localhost:3000
+MeshCentral 管理端：https://localhost（账号 qdadmin）
+
+## 用法（code 工具，lang=shell；cwd 为项目根 D:\INTENT-win）
+
+1. 拉起工作台（脚本内部会自动打开浏览器）：
+   cmd /c D:\INTENT-win\workbench\wb_start.cmd
+2. 若浏览器未自动打开，再用 browser 工具：NAVIGATE http://localhost:3000
+3. 查看设备状态：
+   cmd /c curl -s http://127.0.0.1:3000/api/devices
+4. 查看 API 中转（LiteLLM）状态：
+   cmd /c curl -s http://127.0.0.1:3000/api/proxy
+5. 关闭工作台：
+   cmd /c D:\INTENT-win\workbench\wb_stop.cmd
+
+## 添加 / 编辑 / 删除设备
+
+面板右上角「+ 添加设备」按钮即可新增；每张设备卡上有「编辑 / 标为未部署 / 删除」。
+也可以在对话里让 Agent 直接调用接口（写入 D:\INTENT-win\workbench\devices.yaml 立即生效，无需重启）：
+
+- 新增：POST http://127.0.0.1:3000/api/devices
+  body: {"name":"客厅台式机","host":"192.168.3.20","ports":"6800:对话, 6802:对外API","note":"备注","deployed":true}
+- 编辑：PUT http://127.0.0.1:3000/api/devices/{id}   （body 同上）
+- 删除：DELETE http://127.0.0.1:3000/api/devices/{id}
+- 切换已部署/占位：POST http://127.0.0.1:3000/api/devices/{id}/toggle
+
+deployed=false 表示"占位登记（还没部署到设备上）"：不探活、状态显示"未部署"，避免误报。
+ports 留空表示只登记不探活。
+
+## 说明
+
+- 设备状态三态：在线（绿）/ 离线（红）/ 未部署（灰，占位登记）
+- 当前：INTENT-win（6800/6801/6802/8899/9997，本机，已部署）；INTENT-安卓、qidian-linux 为占位，未部署
+- "生成 API 令牌"需 LiteLLM master key；MeshCentral 默认设备组已建，本机 agent 服务名 Mesh Agent

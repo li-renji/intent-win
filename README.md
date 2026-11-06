@@ -69,32 +69,56 @@ git push -u origin main
 > `.sh`/`.py`/`.json` 等保持 LF（否则 shell 脚本报 `bad interpreter: /bin/sh^M`）。
 > 这是跨平台 clone 能跑起来的关键，别删。
 
-换一台机器从零跑起来：
+## 一行命令安装（推荐，新机零配置）
 
-```sh
-git clone https://github.com/<你的账号>/<仓库名>.git
-cd <仓库名>
+在 **PowerShell** 里粘贴一行即可，不需要 Git、不需要管理员权限、不用预先装 Python：
 
-pip install -r requirements.txt        # 唯一第三方依赖：pywebview（GUI 必需）
-
-# 复制脱敏模板并填入你自己的 key（缺这一步也能启动，但会弹设置框且云端模型不可用）
-cp 配置.example.qdai 配置.qdai
-#   用编辑器打开 配置.qdai，填 api_key=sk-... ；有手机网关就再填 profiles 里的 key
-
-python -m agent.app                    # 启动图形界面
+```powershell
+irm https://raw.githubusercontent.com/li-renji/intent-win/main/install.ps1 | iex
 ```
 
-图形界面起不来的常见原因：
+它会自动完成：下载源码 → 装一份**私有 Python 3.13.14** → 装依赖 →
+把 **WebView2 运行时**与 **Chromium** 一起放进 `runtime/` → 从模板生成本地配置 →
+注册全局 `intent` 命令 → 跑自检。装完后**不依赖 WorkBuddy 的 Python，也不依赖系统 Edge**。
+
+装完 **新开一个终端** 敲 `intent` 就能对话；图形界面双击 `start.bat`。
+首次聊天前在 `配置.qdai` 填自己的 `api_key`（该文件已被 `.gitignore` 排除，不会上传）。
+
+跑那一行之**前**可设置的环境变量：
+
+| 变量 | 作用 |
+|---|---|
+| `INTENT_INSTALL_DIR` | 改安装位置，默认 `D:\INTENT-win` |
+| `INTENT_SOURCE_ZIP` | 指向本地源码 zip，完全离线安装（不连 GitHub） |
+| `INTENT_SKIP_RUNTIME=1` | 已有 `runtime/` 时跳过全部下载，用于升级 / 离线复现 |
+| `INTENT_NO_PATH=1` | 不改用户 PATH |
+| `INTENT_CHECK_SOURCES=1` | 只探测各下载源是否可达，不安装任何东西 |
+
+自检命令：`intent --runtime`（是否完全自带）、`intent --security`（隐私处理报告）。
+
+> GitHub 仓库**只放源码**（约 2MB），`runtime/` 约 1.9GB 二进制不入库。
+> 所以换机除了这一行命令，也可以直接**整个拷贝 `D:\INTENT-win` 文件夹**带走。
+
+## 手动从源码安装（开发 / 排查用）
+
+```sh
+git clone https://github.com/li-renji/intent-win.git
+cd intent-win
+runtime\python\python.exe -m pip install -r requirements.txt   # 仅当自带运行时缺失
+copy 配置.example.qdai 配置.qdai                              # 再填自己的 api_key
+start.bat
+```
+
+常见现象：
 
 | 现象 | 原因与处理 |
 |---|---|
-| 报 `ModuleNotFoundError: webview` | 没装依赖：`pip install -r requirements.txt` |
-| 窗口一闪而过 | 缺 **WebView2 Runtime**（Win11 一般自带；Win10 需装 Microsoft Edge WebView2 Runtime） |
-| 能起但浏览器工具未启用 | 同上，装 WebView2 后重启 |
-| 提示未配置 | `配置.qdai` 缺失或 `api_key` 为空；复制模板并填 key |
+| 报 `ModuleNotFoundError: webview` | `runtime/python` 不完整，重跑安装器或 `pip install -r requirements.txt` |
+| 窗口一闪而过 / 浏览器工具未启用 | 缺 `runtime/webview2`，重跑安装器；用 `intent --runtime` 看是哪一项缺失 |
+| 提示未配置 | `配置.qdai` 缺失或 `api_key` 为空 |
+| `intent` 找不到 | PATH 未刷新，**新开一个终端**；或手动把安装目录加进用户 PATH |
 
-> 直接用 `start.bat` 也可以：它会优先找本机 Python，找不到才退回 `python`，
-> 所以新机只要 `python` 在 PATH 里、且在项目根目录双击即可。
+> 推送前请先跑 `python security/check_before_push.py`：公开仓库，必须确认零密钥、零隐私。
 
 ```sh
 python -m agent.main              # 只起三端口（无 GUI），用于服务器/无头场景
