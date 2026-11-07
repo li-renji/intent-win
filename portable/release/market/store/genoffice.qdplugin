@@ -1,0 +1,6 @@
+name: GenOffice 文档生成
+id: genoffice
+version: 0.1
+desc: 用 GenOffice 引擎把结构化内容生成为真正的 Word(.docx)/Excel(.xlsx)/PPT(.pptx) 文件。用法：先让模型把文档内容写成一个本地文件（docx/pptx 用 Markdown，xlsx 用 JSON 数组/CSV），再用本工具渲染。type 取值 docx|xlsx|pptx；infile 为内容文件路径；out 为输出文件路径（建议放在 D:\\intent-win\\workbench\\ 下）。
+run: python "@ROOT@/tools/genoffice_adapter.py" "@TYPE@" "@INFILE@" "@OUT@"
+params: type, infile, out

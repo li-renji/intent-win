@@ -1,0 +1,65 @@
+{
+  "name": "INTENT 扩展中心（统一云端）",
+  "base": "https://intent-ext-hub.app.workbuddy.host",
+  "sharecode": "6G7CZFN4KM",
+  "note": "只用此账号云端统一管理；不再使用 intent-plugins 另一账号的静态云服务。",
+  "plugins": [
+    {
+      "id": "ajue",
+      "file": "plugins/ajue.qdplugin",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/plugins/ajue.qdplugin?sharecode=6G7CZFN4KM"
+    },
+    {
+      "id": "genoffice",
+      "file": "plugins/genoffice.qdplugin",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/plugins/genoffice.qdplugin?sharecode=6G7CZFN4KM"
+    },
+    {
+      "id": "minimind",
+      "file": "plugins/minimind.qdplugin",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/plugins/minimind.qdplugin?sharecode=6G7CZFN4KM"
+    },
+    {
+      "id": "sysinfo",
+      "file": "plugins/sysinfo.qdplugin",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/plugins/sysinfo.qdplugin?sharecode=6G7CZFN4KM"
+    },
+    {
+      "id": "vscode-ide",
+      "file": "plugins/vscode-ide.qdplugin",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/plugins/vscode-ide.qdplugin?sharecode=6G7CZFN4KM"
+    },
+    {
+      "id": "workbench",
+      "file": "plugins/workbench.qdplugin",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/plugins/workbench.qdplugin?sharecode=6G7CZFN4KM"
+    },
+    {
+      "id": "yaogaochaole",
+      "file": "plugins/yaogaochaole.qdplugin",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/plugins/yaogaochaole.qdplugin?sharecode=6G7CZFN4KM"
+    }
+  ],
+  "skills": [
+    {
+      "id": "browser-guide",
+      "file": "skills/browser-guide.qdskill",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/skills/browser-guide.qdskill?sharecode=6G7CZFN4KM"
+    },
+    {
+      "id": "docgen",
+      "file": "skills/docgen.qdskill",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/skills/docgen.qdskill?sharecode=6G7CZFN4KM"
+    },
+    {
+      "id": "rea",
+      "file": "skills/rea.qdskill",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/skills/rea.qdskill?sharecode=6G7CZFN4KM"
+    },
+    {
+      "id": "workbench",
+      "file": "skills/workbench.qdskill",
+      "url": "https://intent-ext-hub.app.workbuddy.host/files/skills/workbench.qdskill?sharecode=6G7CZFN4KM"
+    }
+  ]
+}

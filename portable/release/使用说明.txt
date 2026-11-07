@@ -1,0 +1,54 @@
+﻿INTENT 便携版 · 全新出厂包
+========================================
+
+【这是什么】
+  一个可以直接装到 U 盘的安装包。装上去的是全新实例：
+  没有会话、没有记忆、没有聊天记录、没有浏览器登录态、没有 API Key、
+  没有本机文件路径。第一次用需要自己填 Key（或用 SAFE-START.cmd 临时输入）。
+
+【怎么装】
+  1. 插上 U 盘（建议空盘，至少 4GB，NTFS 或 exFAT 均可）。
+  2. 双击本目录的「安装到U盘.cmd」。
+     它会自动找到可移动盘并把 payload 装到 U 盘根目录。
+     有多个 U 盘时会列出来让你选；也可以命令行指定：
+         安装到U盘.cmd --drive E:
+     预演不写盘：安装到U盘.cmd --dry-run
+  3. 装完在 U 盘根目录会看到两个快捷方式：
+         终端对话.lnk    -> 终端聊天
+         图形界面.lnk    -> 桌面窗口聊天
+     双击任意一个即可。不需要管理员、不写注册表、不改这台电脑的 PATH。
+
+【快捷方式为什么不写死盘符】
+  Windows 的 .lnk 存不了可用的相对目标。这里固定指向每台 Windows 都有的
+  %ComSpec%，参数按 INTENT-PORTABLE.marker 扫 C..Z 找到 U 盘再启动。
+  所以 U 盘从 E: 变 F:、换一台电脑、换一个 U 盘，图标照样能用。
+
+【软件更新了怎么办】
+  两条通道，都只传变化的文件，你的数据一个字节都不动：
+    A. 本机插盘推送（最快，可更新 runtime 底座）
+       在开发机运行：portable\推送到U盘.cmd --drive E:
+       或：python portable\push.py --drive E:
+    B. U 盘联网拉取（任意电脑，只更新程序文件）
+       双击 U 盘根目录 UPDATE.cmd，从 GitHub 更新源拉增量。
+       runtime 底座有新版时会提示回开发机走 A，不会假装更新了。
+  发布新版本（开发者）：portable\发布新版本.cmd
+       生成 portable\release\ 更新源并提交到 GitHub，所有 U 盘
+       下次点 UPDATE.cmd 就能拿到。
+
+  被保护、永不覆盖/删除的数据：会话\、memories\、models\、kb\、
+  logs\、data\home\、data\资料\、配置.qdai、pc_bridge.token。
+
+【目录里还有什么】
+  DOCTOR.cmd      换机体检：这台电脑能不能跑、缺什么
+  SAFE-START.cmd  启动前临时输入 API Key，退出后从盘上抹掉
+  PIN-TO-DESKTOP.cmd  可选：把「INTENT Portable」放到这台电脑桌面
+  autorun.inf     让「此电脑」里 U 盘显示 INTENT 名称与图标
+  配置.example.qdai   最新默认配置模板（联网更新会同步它）
+
+【边界（如实说明）】
+  · 仅 Windows 10+ 64 位；建议 USB 3.0 / 固态 U 盘，首次启动要读 1.9GB。
+  · models\ 是空的，本地 GGUF 模型与 llama-server.exe 需自行放入。
+  · 云端模型要求能联网；完全离线请配本地模型。
+  · 配置.qdai 里 Key 是明文（出厂为空）；介意请用 SAFE-START.cmd。
+  · 桌面快捷方式属于「插上的那台电脑」，换电脑要重新 PIN 一次；
+    U 盘里的两个 .lnk 不受影响。

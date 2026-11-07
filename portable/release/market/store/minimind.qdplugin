@@ -1,0 +1,28 @@
+name: MiniMind 本地推理
+id: minimind
+version: 0.1
+desc: 启动 MiniMind 本地 OpenAI 兼容推理服务（默认 http://127.0.0.1:8000/v1），可在 INTENT 的模型档案里直接当端点对话；同时提供训练入口。
+
+run: python "@ROOT@/tools/plugin_launch.py" minimind @ACTION@
+params: action
+
+# 说明
+#
+# MiniMind：https://github.com/jingyaogong/minimind
+#   从零训练的小参数 LLM（最小 64M），单卡 3090 约 2 小时 / 约 ¥3 成本。
+#   自带 OpenAI 兼容的 api_server.py，因此天然可以当 INTENT 的模型端点。
+#
+# 准备（一次性）：
+#   git clone https://github.com/jingyaogong/minimind vendor/minimind
+#   cd vendor/minimind && pip install -r requirements.txt
+#   # 按仓库 README 训练出 checkpoint（out/…/ckpt_*.pt）
+#
+# 用法：
+#   action=start   启动本地推理服务（后台）
+#   action=status  查看是否在运行
+#   action=stop    停止服务
+#
+# 启动后，在「设置 → 模型 → 新建 API」里填：
+#   接口地址：http://127.0.0.1:8000/v1
+#   App（API Key）：随便填一个非空字符串（本地服务不校验）
+#   之后点保存，系统会验证并列出可用模型。

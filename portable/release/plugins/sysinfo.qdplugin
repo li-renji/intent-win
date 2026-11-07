@@ -1,0 +1,18 @@
+name: 系统信息
+id: sysinfo
+version: 0.1
+desc: 查询本机系统与内存概况（操作系统版本 / 总内存 / 可用内存），用于排查环境或回答本机配置问题
+run: powershell -NoProfile -Command "$os=Get-CimInstance Win32_OperatingSystem; 'OS: ' + $os.Caption; 'TotalMem(MB): ' + [math]::Round($os.TotalVisibleMemorySize/1024); 'FreeMem(MB): ' + [math]::Round($os.FreePhysicalMemory/1024)"
+
+# 声明式插件说明
+#
+# id  = 工具名（Agent 会把它当成一个真实工具来调用）
+# run = 要执行的命令
+#
+# 参数：在 run 里用 @参数名@ 占位，调用时自动替换；项目根目录用 @ROOT@。
+#   例：run: npx rea-agents analyze-dotnet-assembly "@PATH@"
+#       params: path
+#   调用 docgen 类插件时传入 {"path": "C:/a.dll"} 就会替换进去。
+#
+# 声明式 = 只描述命令，不加载/执行任意 Python，因此安装插件本身是安全的。
+# 但命令本身由插件作者提供，来源不明的插件仍需自行判断是否可信。

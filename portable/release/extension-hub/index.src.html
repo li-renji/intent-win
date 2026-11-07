@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>intent-win 扩展中心 · skills 与插件一键安装</title>
+<style>
+  :root{
+    --bg:#0B0E17; --bg2:#111524; --card:#151A2B; --line:#242B42;
+    --fg:#E8ECF6; --dim:#98A2C0; --dim2:#6C7699;
+    --cy:#4FD1C5; --pu:#8B7CF6; --gr:#48C78E; --am:#F5A524; --rd:#F2545B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 15% -10%,#1B2140 0%,var(--bg) 55%) no-repeat,var(--bg);
+    color:var(--fg);font:15px/1.75 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:960px;margin:0 auto;padding:48px 22px 80px}
+  header{padding:8px 0 28px;border-bottom:1px solid var(--line);margin-bottom:32px}
+  h1{margin:0 0 10px;font-size:30px;letter-spacing:.3px}
+  h1 b{background:linear-gradient(92deg,var(--cy),var(--pu));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--dim);font-size:14.5px;max-width:720px}
+  .tags{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+  .tag{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim);background:#0E1322}
+  .tag.on{color:var(--gr);border-color:#24483A}
+  h2{font-size:19px;margin:38px 0 14px;display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:4px;height:18px;border-radius:2px;background:linear-gradient(180deg,var(--cy),var(--pu))}
+  h3{font-size:15.5px;margin:22px 0 8px;color:var(--fg)}
+  p{margin:9px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:14px 0}
+  .steps li{counter-increment:s;position:relative;padding:8px 0 8px 38px}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:9px;width:24px;height:24px;border-radius:50%;
+    background:linear-gradient(135deg,var(--cy),var(--pu));color:#0B0E17;font-size:13px;font-weight:700;
+    display:flex;align-items:center;justify-content:center}
+  code,.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:13.2px}
+  pre{background:#080B14;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;margin:12px 0}
+  pre code{color:#C7D2F0}
+  .cmd{color:var(--cy)}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--dim2);font-weight:600;font-size:12.5px;letter-spacing:.4px;text-transform:uppercase}
+  td a{color:var(--cy);text-decoration:none}
+  td a:hover{text-decoration:underline}
+  .pill{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:6px;border:1px solid var(--line);color:var(--dim)}
+  .pill.skill{color:var(--pu);border-color:#3A3462}
+  .pill.plugin{color:var(--cy);border-color:#204F4A}
+  .pill.new{color:var(--am);border-color:#5A431A}
+  .note{border-left:3px solid var(--am);background:#1A1608;padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0;font-size:14px;color:#E8DCC0}
+  .ok{border-left-color:var(--gr);background:#0B1A13}
+  .copy{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--dim);
+    border:1px solid var(--line);border-radius:8px;padding:3px 10px;cursor:pointer;background:#0E1322;user-select:none}
+  .copy:hover{color:var(--cy);border-color:#204F4A}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim2);font-size:13px}
+  a{color:var(--cy)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>intent-win <b>扩展中心</b></h1>
+  <p class="sub">
+    intent-win 自带扩展系统：技能（<code>.qdskill</code>）与插件（<code>.qdplugin</code>）都是文件驱动的，
+    装进目录即可用。本页把本机做好的扩展打包成可下载的静态站点，<b>在另一台电脑上几分钟就能装齐</b>。
+  </p>
+  <div class="tags">
+    <span class="tag on" id="tg-count">—</span>
+    <span class="tag">静态站点 · 无需后端</span>
+    <span class="tag">不含任何个人数据</span>
+    <span class="tag">一键安装脚本</span>
+  </div>
+</header>
+
+<h2>快速开始（三步）</h2>
+<div class="card">
+  <ol class="steps">
+    <li>下载安装器 <code>install.py</code>（点下面的按钮）。</li>
+    <li>在 <b>intent-win 的根目录</b>（就是有 <code>agent/</code>、<code>plugins/</code> 的那一层）打开命令行，执行：
+      <div class="row" style="margin-top:8px">
+        <code class="cmd" id="quick-cmd">python install.py</code>
+        <span class="copy" data-copy="quick-cmd">复制</span>
+      </div>
+    </li>
+    <li><b>重启 intent</b>——技能摘要与插件注册都在启动时完成，重启后才生效。</li>
+  </ol>
+  <p class="sub" style="margin-top:14px">
+    装完打开「设置 → 市场」能看到新装的扩展；桌宠阿觉的
+    <b>常驻监听</b>与<b>开机自启</b>都在它自己的「设置 → 监听」页里开关。
+  </p>
+  <p style="margin-top:16px">
+    <a id="dl-onelick" class="pill plugin" href="#">⬇ 下载一键安装器（Windows 双击即可）</a>
+    <a id="dl-installer" class="pill plugin" download="install.py" href="#">⬇ 只下载 install.py</a>
+    <span class="pill" style="border-color:#24483A;color:#48C78E">单文件自包含 · 离线可用</span>
+  </p>
+</div>
+
+<h2>三种安装方式</h2>
+
+<h3>方式一：一键安装（推荐）</h3>
+<div class="card">
+  <p>一条命令装齐全部扩展，同时把配套的运行时代码放到正确位置（光装 manifest 是不够的——
+     插件的 <code>run</code> 会去调用仓库里的脚本）。</p>
+  <pre><code id="cmd-one">python install.py --root D:\intent-win</code></pre>
+  <p class="sub">只装某几个：<code>python install.py --only ajue,workbench,genoffice</code></p>
+</div>
+
+<h3>方式二：URL 安装（只补单个扩展）</h3>
+<div class="card">
+  <p>已经装好 intent-win、只想再补一个扩展时最快：</p>
+  <ol class="steps">
+    <li>打开 intent 的 <b>设置 → 市场 → URL 安装</b>。</li>
+    <li>类型选 <code>skill</code> 或 <code>plugin</code>（见下方清单里的「类型」列）。</li>
+    <li>地址填下面清单里对应扩展的下载链接，<b>id</b> 填它的 id。</li>
+    <li>确定后<b>重启 intent</b>。</li>
+  </ol>
+  <p class="sub">注意：URL 安装只能装单个 manifest，<b>不带</b>配套代码。像「阿觉常驻监听」这种
+     需要配套脚本的，请用方式一。<br>
+     另外：<b>下载链接要整条复制</b>（含后面的 <code>?sharecode=…</code> 访问码），
+     只复制前半段会返回 403。</p>
+</div>
+
+<h3>方式三：手动放置</h3>
+<div class="card">
+  <p>直接下载文件，放到对应目录即可：技能放 <code>&lt;根目录&gt;/skills/</code>，
+     插件放 <code>&lt;根目录&gt;/plugins/</code>；再重启 intent。</p>
+</div>
+
+<h2>扩展清单</h2>
+<div class="card">
+  <table id="tbl">
+    <thead><tr><th>名称</th><th>类型</th><th>id</th><th>说明</th><th>下载</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <p class="sub" style="margin-top:10px">
+    标 <span class="pill new">本机新做</span> 的是这次新增的；其余是仓库里原有、依赖 intent-win
+    自身目录或外部程序的扩展，manifest 可装、运行条件见下方「注意事项」。
+  </p>
+</div>
+
+<h2>重点：阿觉常驻语音监听</h2>
+<div class="card">
+  <p>桌宠「阿觉」新增的常驻监听能力——插着充电器时在后台一直听你说话，
+     听到「阿觉」才唤醒，回答后用语音回应，全过程无弹窗。</p>
+  <h3>额外依赖（只在用监听时才需要）</h3>
+  <pre><code>pip install faster-whisper sounddevice pypinyin zhconv</code></pre>
+  <p class="sub">faster-whisper 首次运行会下载模型（约 140 MB）；国内网络建议设置
+     <code>HF_ENDPOINT=https://hf-mirror.com</code> 与 <code>HF_HUB_DISABLE_XET=1</code>
+     （本页提供的 listen.py 已内置这两个兜底）。</p>
+  <h3>怎么用</h3>
+  <ul>
+    <li>点桌宠 → ⚙ 设置 → <b>监听</b> 页；</li>
+    <li>打开「<b>启用常驻监听</b>」——它会一直听你说「阿觉」，确认是叫它才回答；</li>
+    <li>再打开「<b>开机自启</b>」——开机后阿觉在后台无窗口地守着（写当前用户启动项，无需管理员权限）。</li>
+  </ul>
+  <p class="sub">这两项都是阿觉插件自己的设置，<b>不需要额外安装任何扩展</b>。</p>
+  <h3>可调项</h3>
+  <p class="sub">
+    唤醒词（默认「阿觉」，可多个）、识别模型（tiny / base / small）、电量策略（仅插电 / 始终）。
+    改完约 2 秒内生效，不用重启。
+  </p>
+</div>
+
+<h2>注意事项</h2>
+<div class="card">
+  <p class="row" style="margin-bottom:10px">
+    <span class="pill plugin">隐私</span>
+    本站只含<b>扩展代码本身</b>：不含 <code>配置.qdai</code>（里面是 API Key）、
+    不含 <code>plugin_data/</code>（聊天记录 / 日记 / 长期记忆）、不含任何会话文件。
+    这些永远只留在你自己机器上。
+  </p>
+  <p class="row" style="margin-bottom:10px">
+    <span class="pill plugin">依赖</span>
+    「工作台」技能依赖 <code>workbench/</code> 目录与 Node 前端；「GenOffice」依赖外部
+    GenOffice CLI；「VS Code 面板」「网页 DeepSeek」依赖各自的 tools 适配器与登录态。
+    这些扩展的 manifest 可以装上，但要真正跑起来还需要对应的环境。
+  </p>
+  <p class="row">
+    <span class="pill plugin">网络</span>
+    「工作台」技能正文里写死了内网地址与 MeshCentral 账号，换网络环境时需要自行修改。
+  </p>
+</div>
+
+<footer>
+  intent-win 扩展中心 · 静态发布，无后端、无追踪。<br>
+  一键安装器与本页同源；下载即可离线保存，站点地址已内置在安装器里。
+</footer>
+
+</div>
+
+<script>
+(function(){
+  // 站点根目录：兼容任意部署域名/子路径
+  // 注意：本站点文件访问必须带访问码（?sharecode=...），否则一律 403，
+  // 所以拼 URL 时要把访问码一起带上。
+  var u = new URL(location.href);
+  var BASE = u.origin + u.pathname.replace(/index\.html$/,'');
+  var SC = u.searchParams.get('sharecode');
+  var Q = SC ? ('?sharecode=' + encodeURIComponent(SC)) : '';
+
+  var EXT = [
+    {n:'阿觉 · 个人生活智能体', t:'plugin', id:'ajue',           newv:true,
+     d:'桌宠阿觉本体：人格、流式对话、软化语气、日记、长期记忆，以及本机新加的<b>常驻语音监听</b>与<b>开机自启</b>——这两项就在阿觉自己的「设置 → 监听」页里开关，不另装扩展。',
+     f:'plugins/ajue.qdplugin'},
+    {n:'浏览器使用指南',    t:'skill',  id:'browser-guide',
+     d:'教 AI 正确使用内置浏览器（先导航、再快照、点编号，省 token）。',
+     f:'skills/browser-guide.qdskill'},
+    {n:'逆向工程分析 rea',  t:'skill',  id:'rea',
+     d:'对 JS/Electron、.NET、APK、网站、HAR、PE/ELF 做静态逆向与行为分析。',
+     f:'skills/rea.qdskill'},
+    {n:'设备管理工作台',    t:'skill',  id:'workbench',
+     d:'说「打开工作台」即拉起设备管理面板（依赖 intent-win 自带 workbench 目录）。',
+     f:'skills/workbench.qdskill'},
+    {n:'GenOffice 文档生成', t:'plugin', id:'genoffice',
+     d:'把结构化内容渲染成真正的 Word / Excel / PPT 文件。',
+     f:'plugins/genoffice.qdplugin'},
+    {n:'VS Code 风格编程面板', t:'plugin', id:'vscode-ide',
+     d:'点击 AI 头像即可看到它实时改动的文件内容。',
+     f:'plugins/vscode-ide.qdplugin'},
+    {n:'网页 DeepSeek',     t:'plugin', id:'yaogaochaole',
+     d:'用 CDP 自动化操控 Edge 里的 DeepSeek 网页版，把网页模型变成可调用工具。',
+     f:'plugins/yaogaochaole.qdplugin'},
+    {n:'MiniMind 本地推理', t:'plugin', id:'minimind',
+     d:'启动本地 OpenAI 兼容推理服务（:8000/v1），可当模型端点直接在 INTENT 里对话；含训练入口。',
+     f:'plugins/minimind.qdplugin'},
+    {n:'系统信息',          t:'plugin', id:'sysinfo',
+     d:'查询本机操作系统版本 / 总内存 / 可用内存，用于排查环境或回答本机配置问题。',
+     f:'plugins/sysinfo.qdplugin'},
+    {n:'文档生成 docgen',   t:'skill',  id:'docgen',
+     d:'生成真实 Word / Excel / PPT 文件（依赖 python-docx / openpyxl / python-pptx）。',
+     f:'skills/docgen.qdskill'}
+  ];
+
+  var tb = document.querySelector('#tbl tbody');
+  EXT.forEach(function(e){
+    var url = BASE + 'files/' + e.f + Q;
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><b>'+e.n+'</b>'+(e.newv?' <span class="pill new">本机新做</span>':'')+'</td>'+
+      '<td><span class="pill '+e.t+'">'+(e.t==='skill'?'技能':'插件')+'</span></td>'+
+      '<td><code>'+e.id+'</code></td>'+
+      '<td>'+e.d+'</td>'+
+      '<td><a href="#" onclick="downloadFile(\''+e.f+'\');return false;">⬇ 下载</a>'+
+      '<br><code style="font-size:11.5px;color:#6C7699">'+url+'</code></td>';
+    tb.appendChild(tr);
+  });
+
+  document.getElementById('tg-count').textContent = EXT.length + ' 个扩展可安装';
+  document.getElementById('dl-installer').href = BASE + 'install.py' + Q;
+  document.getElementById('dl-installer').setAttribute('onclick',
+      'downloadFile(\'install.py\');return false;');
+  document.getElementById('dl-onelick').setAttribute('onclick',
+      'downloadFile(\'files/install.bat\');return false;');
+  document.getElementById('quick-cmd').textContent = 'python install.py';
+  document.getElementById('cmd-one').textContent = 'python install.py --root D:\\intent-win';
+
+  Array.prototype.forEach.call(document.querySelectorAll('.copy'), function(c){
+    c.onclick = function(){
+      var el = document.getElementById(c.dataset.copy);
+      var t = el ? el.textContent : '';
+      if(navigator.clipboard) navigator.clipboard.writeText(t);
+      var old = c.textContent; c.textContent = '已复制';
+      setTimeout(function(){ c.textContent = old; }, 1200);
+    };
+  });
+})();
+</script>
+<script>
+/* 构建时注入：所有可下载文件（base64）。
+   这样单个 HTML 就是完整的扩展中心——双击、WorkBuddy 预览、丢给任何人都能用，
+   不依赖服务器路径，也不需要联网。 */
+window.__FILES__ = /*__FILES__*/{};
+
+/* 就地生成并下载文件（不依赖任何服务器路径） */
+function downloadFile(rel){
+  var b64 = (window.__FILES__ || {})[rel];
+  if(!b64){ return false; }
+  var bin = atob(b64), arr = new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+  var blob = new Blob([arr], {type:'application/octet-stream'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = rel.split('/').pop();
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+  return true;
+}
+</script>
+</body>
+</html>

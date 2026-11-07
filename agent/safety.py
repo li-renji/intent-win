@@ -289,7 +289,7 @@ def selftest():
         lines.append(("PASS" if cond else "FAIL") + "  " + name +
                      (("  | " + str(extra)) if extra else ""))
 
-    sample = ("api_key=sk-cvQh4uacn3OM4tFIAzThtuiOgwFhJZTi "
+    sample = ("api_key=sk-EXAMPLE0000SELFTEST0000FAKE00 "
               "Bearer eyJhbGciOiJIUzI1NiJ9.abcdefghijklmnop "
               "身份证 110101199003072316 手机 13812345678 "
               "银行卡 6222020200001234567")
@@ -298,7 +298,7 @@ def selftest():
     check("识别 Bearer 令牌", found.get("BEARER", 0) >= 1)
     check("识别身份证 / 手机号 / 银行卡",
           all(found.get(k, 0) >= 1 for k in ("ID_CARD", "PHONE", "BANK_CARD")))
-    check("脱敏后原文密钥不残留", "sk-cvQh4u" not in red and "13812345678" not in red)
+    check("脱敏后原文密钥不残留", "sk-EXAMPLE" not in red and "13812345678" not in red)
     check("普通文本不误伤", scan("帮我看看 D:/INTENT-win/README.md 第 3 行写了什么")[1] == {})
 
     payload = {"model": "m", "messages": [

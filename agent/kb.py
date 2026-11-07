@@ -76,8 +76,19 @@ def _fmt_size(n):
 
 
 def default_roots():
-    """默认扫描范围：用户常用目录（深扫）+ 各磁盘根（浅扫）+ 当前项目。"""
+    """默认扫描范围：用户常用目录（深扫）+ 各磁盘根（浅扫）+ 当前项目。
+
+    U 盘便携模式（INTENT_PORTABLE=1）：只索引随盘携带的资料目录，
+    不扫描插上的那台电脑的磁盘 —— 既不把别人的文件混进知识库，
+    也避免插上就狂扫全盘。
+    """
     home = os.path.expanduser("~")
+    if os.environ.get("INTENT_PORTABLE") == "1":
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cands = [os.path.join(root, "docs"),
+                 os.path.join(root, "data", "资料"),
+                 os.path.join(home, "Documents")]
+        return [(p, 6) for p in cands if os.path.isdir(p)]
     roots = []
     for name in USER_DIR_NAMES:
         for base in (home, os.path.join(home, "OneDrive")):

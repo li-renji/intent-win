@@ -35,3 +35,10 @@
 *.onnx  binary
 *.gguf  binary
 *.key   binary
+
+# ===== 云端增量更新源：必须逐字节保真 =====
+# portable/release/manifest.json 里存的是工作区文件的 sha256，
+# U 盘的 UPDATE.cmd 下载后会逐个校验。上面任何 text/eol 转换都会让
+# 仓库 blob 与盘上文件字节不一致，更新会被判为「校验失败」而全部丢弃。
+# 这条放在最后，覆盖前面的 *.cmd / *.py / *.txt 等规则。
+portable/release/** -text

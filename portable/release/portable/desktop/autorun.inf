@@ -1,0 +1,6 @@
+[AutoRun]
+label=INTENT Portable
+icon=intent.ico
+action=Create INTENT desktop shortcut
+shellexecute=PIN-TO-DESKTOP.cmd
+UseAutoPlay=1

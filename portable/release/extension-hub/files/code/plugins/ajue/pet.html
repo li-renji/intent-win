@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>阿觉</title>
+<style>
+  :root{
+    --bg:#0F1220; --card:#171C2B; --card2:#1D2334; --line:#28304A;
+    --txt:#E9EEFB; --sub:#93A0BE; --acc:#6EA8FE; --acc2:#A78BFA;
+    --ok:#5FD0A0; --warn:#FFB454; --bad:#FF7B7B;
+    --r:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:transparent}
+  body{
+    color:var(--txt);
+    font:13px/1.6 "PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+    user-select:none; -webkit-user-select:none;
+    -webkit-font-smoothing:antialiased;
+  }
+  input,textarea{user-select:text;-webkit-user-select:text;font-family:inherit}
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-thumb{background:#2C3550;border-radius:3px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  /* ============ 形态切换 ============ */
+  #orb,#panel{display:none}
+  body[data-state="orb"]   #orb{display:block}
+  body[data-state="panel"] #panel{display:flex}
+
+  /* ============ 球（桌宠本体）============ */
+  #orb{width:132px;height:132px;position:relative;cursor:grab}
+  #orb:active{cursor:grabbing}
+  #orb svg{display:block;width:132px;height:132px}
+  #orb .body-g{transform-origin:66px 74px;animation:float 4.2s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  #orb .breathe{transform-origin:66px 68px;animation:breathe 5s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.025)}}
+  #orb .eyes{transform-origin:66px 66px;animation:blink 6.4s infinite}
+  @keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
+  #orb .halo{opacity:.5;transition:opacity .3s}
+  #orb:hover .halo{opacity:.9}
+  #orb .ring{transform-origin:66px 66px;animation:spin 14s linear infinite;opacity:.55}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #orb.thinking .ring{animation-duration:2.4s;opacity:.95}
+  #orb.thinking .halo{animation:pulse 1.1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:.85}}
+  #orb .mouth{transform-origin:66px 79px;transform:scaleY(.7)}
+  #orb.speaking .mouth{animation:talk .32s ease-in-out infinite alternate}
+  @keyframes talk{from{transform:scaleY(.55)}to{transform:scaleY(1.6)}}
+  #orb.sleep .eyes{animation:none;transform:scaleY(.12)}
+  #orb.sleep .body-g{animation-duration:8s}
+  #orb .tags{transition:opacity .25s}
+  #orb:not(:hover) .tags{opacity:0}
+  #orb .badge{opacity:0;transition:opacity .2s}
+  #orb.has-unread .badge{opacity:1}
+
+  /* ============ 面板 ============ */
+  #panel{
+    width:100vw;height:100vh;flex-direction:column;position:relative;
+    background:linear-gradient(180deg,rgba(23,28,43,.97),rgba(15,18,32,.98));
+    border:1px solid rgba(110,168,254,.18);
+    border-radius:var(--r);overflow:hidden;
+    box-shadow:0 24px 60px rgba(0,0,0,.55);
+  }
+  /* 顶栏（可拖）*/
+  #bar{
+    display:flex;align-items:center;gap:8px;padding:10px 12px;
+    background:linear-gradient(180deg,rgba(31,38,58,.9),rgba(23,28,43,.75));
+    border-bottom:1px solid var(--line);flex:0 0 auto;cursor:grab;
+  }
+  #bar:active{cursor:grabbing}
+  #bar .meta{flex:1;min-width:0;display:flex;align-items:center;gap:7px}
+  #dot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex:0 0 auto;
+       box-shadow:0 0 0 3px rgba(255,180,84,.14)}
+  #dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(95,208,160,.16)}
+  #name{font-weight:600;letter-spacing:.5px;white-space:nowrap}
+  #sub{color:var(--sub);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ib{width:26px;height:26px;border-radius:9px;border:1px solid var(--line);
+      background:#232A3E;color:var(--sub);cursor:pointer;font-size:12px;line-height:1;
+      display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:.15s}
+  .ib:hover{background:#2C3450;color:var(--txt);border-color:#3A4568}
+
+  /* 角色台（面板里的小号阿觉）*/
+  #stage{position:relative;flex:0 0 auto;height:104px;display:flex;align-items:center;
+         justify-content:center;
+         background:radial-gradient(120% 90% at 50% 30%,rgba(58,74,120,.45) 0%,rgba(15,18,32,0) 70%)}
+  #stage svg{margin-top:2px}
+  #mini{cursor:pointer;transition:transform .18s}
+  #mini:hover{transform:scale(1.06)}
+  #stage .body-g{transform-origin:36px 40px;animation:float2 4.2s ease-in-out infinite}
+  @keyframes float2{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  #stage .eyes{transform-origin:36px 36px;animation:blink2 6.4s infinite}
+  @keyframes blink2{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
+  #stage.thinking .ring{animation-duration:2.4s;opacity:.95}
+  #stage .ring{transform-origin:36px 36px;animation:spin 14s linear infinite;opacity:.55}
+  #stage.speaking .mouth-g{animation:talk2 .32s ease-in-out infinite alternate}
+  #stage .mouth-g{transform-origin:36px 43px}
+  @keyframes talk2{from{transform:scaleY(.6)}to{transform:scaleY(1.5)}}
+
+  #bubble{position:absolute;left:12px;right:12px;bottom:6px;padding:8px 11px;
+          background:rgba(29,35,52,.94);border:1px solid var(--line);border-radius:11px;
+          font-size:12px;line-height:1.5;box-shadow:0 8px 22px rgba(0,0,0,.4);
+          transition:opacity .25s,transform .25s;max-height:56px;overflow:hidden}
+  #bubble.hide{opacity:0;transform:translateY(4px);pointer-events:none}
+
+  /* 消息流 */
+  #log{flex:1 1 auto;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+  .msg{max-width:86%;padding:7px 11px;border-radius:13px;font-size:12.5px;
+       white-space:pre-wrap;word-break:break-word;animation:pop .18s ease-out}
+  @keyframes pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .me{align-self:flex-end;background:linear-gradient(135deg,#3D62C9,#5B8DEF);color:#fff;
+      border-bottom-right-radius:5px}
+  .aj{align-self:flex-start;background:var(--card2);border:1px solid var(--line);
+      border-bottom-left-radius:5px}
+  .sys{align-self:center;color:var(--sub);font-size:11px;text-align:center;
+      background:rgba(255,255,255,.03);border:1px dashed var(--line);border-radius:8px;
+      padding:3px 9px}
+
+  /* 输入区 */
+  #row{display:flex;gap:7px;padding:9px 12px 6px;flex:0 0 auto}
+  #in{flex:1;background:#141A29;border:1px solid var(--line);border-radius:10px;
+      color:var(--txt);padding:8px 10px;font-size:12.5px;outline:none;transition:.15s}
+  #in:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(110,168,254,.12)}
+  #send{width:40px;border:none;border-radius:10px;background:linear-gradient(135deg,#5B8DEF,#8FBCFF);
+        color:#fff;cursor:pointer;font-size:14px;transition:.15s}
+  #send:hover{filter:brightness(1.1)}
+  #send:disabled{opacity:.45;cursor:default}
+
+  /* 工具条 */
+  #tools{display:flex;gap:5px;padding:2px 12px 11px;flex:0 0 auto;flex-wrap:wrap}
+  .tb{font-size:11px;padding:4px 9px;border-radius:8px;border:1px solid var(--line);
+      background:#171D2C;color:var(--sub);cursor:pointer;transition:.15s}
+  .tb:hover{color:var(--txt);border-color:#3A4568;background:#1E2537}
+  .tb.act{background:rgba(110,168,254,.16);color:#CBDEFF;border-color:#3D5E9E}
+
+  /* ============ 设置面板 ============ */
+  #sheet{position:absolute;inset:0;background:rgba(9,12,20,.92);display:none;
+         flex-direction:column;z-index:20;backdrop-filter:blur(3px)}
+  #sheet.show{display:flex;animation:fade .16s ease-out}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  #sheet header{display:flex;gap:6px;padding:12px 12px 8px;flex:0 0 auto;flex-wrap:wrap}
+  .tab{font-size:12px;padding:5px 11px;border-radius:9px;border:1px solid var(--line);
+       background:#171D2C;color:var(--sub);cursor:pointer}
+  .tab.on{background:rgba(110,168,254,.18);color:#D6E6FF;border-color:#3D5E9E}
+  #sheetBody{flex:1;overflow-y:auto;padding:2px 14px 18px;font-size:12px;color:var(--sub)}
+  #sheetFoot{display:flex;gap:7px;justify-content:flex-end;padding:10px 14px;flex:0 0 auto;
+             border-top:1px solid var(--line);background:#12172A;
+             box-shadow:0 -10px 16px rgba(6,8,14,.55)}
+  .h5{font-size:11px;color:var(--acc);letter-spacing:1px;margin:14px 0 7px;
+      text-transform:uppercase;font-weight:600}
+  .h5:first-child{margin-top:2px}
+  .card{background:#151B29;border:1px solid var(--line);border-radius:11px;padding:10px 11px}
+  .rowline{display:flex;align-items:center;gap:10px;padding:9px 0;
+           border-bottom:1px solid rgba(40,48,74,.7)}
+  .rowline:last-child{border-bottom:none}
+  .rowline .t{flex:1;min-width:0}
+  .rowline .t b{display:block;color:var(--txt);font-weight:500;font-size:12.5px}
+  .rowline .t span{display:block;color:var(--sub);font-size:11px;margin-top:2px;line-height:1.5}
+  .sid{display:inline !important;font-size:10px !important;color:#6B7794 !important;
+       margin-left:6px;font-weight:400}
+  /* 开关 */
+  .sw{position:relative;width:38px;height:22px;flex:0 0 auto;cursor:pointer}
+  .sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+  .sw i{position:absolute;inset:0;background:#2A3250;border-radius:11px;transition:.18s}
+  .sw i::after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;
+               border-radius:50%;background:#8B97B5;transition:.18s}
+  .sw input:checked + i{background:rgba(110,168,254,.45)}
+  .sw input:checked + i::after{left:19px;background:#8FBCFF}
+  /* 表单 */
+  .field{margin-bottom:9px}
+  .field label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px}
+  .field input,.field select{
+      width:100%;background:#131926;border:1px solid var(--line);border-radius:9px;
+      color:var(--txt);padding:7px 9px;font-size:12px;outline:none}
+  .field input:focus,.field select:focus{border-color:var(--acc)}
+  .btn{padding:6px 13px;border-radius:9px;border:1px solid var(--line);background:#1E2537;
+       color:var(--txt);cursor:pointer;font-size:12px;transition:.15s}
+  .btn:hover{border-color:#3A4568;background:#262F45}
+  .btn.pri{background:linear-gradient(135deg,#4C7BF0,#6EA8FE);border-color:transparent;color:#fff}
+  .btn.dan{background:rgba(255,123,123,.14);border-color:rgba(255,123,123,.35);color:#FFB3B3}
+  .tip{font-size:11px;color:var(--sub);margin-top:6px;line-height:1.6}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:11.5px}
+  .kv b{color:var(--txt);font-weight:500}
+  .empty{color:#6B7794;font-size:11.5px;padding:6px 0}
+  .wsrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(40,48,74,.7)}
+  .wsrow .p{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+  .x{border:none;background:rgba(255,123,123,.14);color:#FFB3B3;border-radius:7px;
+     width:24px;height:24px;cursor:pointer;font-size:12px;flex:0 0 auto}
+
+  /* ============ 右键菜单 ============ */
+  #menu{position:absolute;z-index:40;display:none;min-width:132px;padding:5px;
+        background:rgba(26,32,49,.97);border:1px solid var(--line);border-radius:11px;
+        box-shadow:0 14px 34px rgba(0,0,0,.5)}
+  #menu.show{display:block}
+  #menu button{display:block;width:100%;text-align:left;border:none;background:none;color:var(--txt);
+       font:inherit;font-size:12px;padding:7px 10px;border-radius:8px;cursor:pointer}
+  #menu button:hover{background:rgba(110,168,254,.16)}
+  #menu button.dan{color:#FFB3B3}
+  #menu button.dan:hover{background:rgba(255,123,123,.14)}
+  #menu .sep{height:1px;background:var(--line);margin:4px 2px}
+</style>
+</head>
+<body data-state="orb">
+
+<!-- ================= 球 ================= -->
+<div id="orb" class="pywebview-drag-region">
+  <!-- 窗体已被裁成圆形，所以这颗球要画满整个圆：它就是阿觉本人 -->
+  <svg viewBox="0 0 132 132" width="132" height="132">
+    <defs>
+      <radialGradient id="orbBody" cx="36%" cy="28%" r="82%">
+        <stop offset="0%"  stop-color="#DCECFF"/>
+        <stop offset="28%" stop-color="#9FC7FF"/>
+        <stop offset="62%" stop-color="#5B8DEF"/>
+        <stop offset="88%" stop-color="#3357CE"/>
+        <stop offset="100%" stop-color="#1F3AA8"/>
+      </radialGradient>
+      <radialGradient id="orbSheen" cx="34%" cy="24%" r="42%">
+        <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".62"/>
+        <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="orbRing" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#A78BFA"/><stop offset="50%" stop-color="#9FD8FF"/>
+        <stop offset="100%" stop-color="#5FD0A0"/>
+      </linearGradient>
+      <radialGradient id="orbFloor" cx="50%" cy="40%" r="60%">
+        <stop offset="55%" stop-color="#0B1330" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#0B1330" stop-opacity=".55"/>
+      </radialGradient>
+    </defs>
+
+    <!-- 球体本体：填满整圆 -->
+    <circle cx="66" cy="66" r="66" fill="url(#orbBody)"/>
+    <!-- 外圈一圈微光，让它不像贴纸 -->
+    <circle cx="66" cy="66" r="64.5" fill="none" stroke="#BCD8FF" stroke-opacity=".5"
+            stroke-width="1.6"/>
+    <!-- 底部暗部（球体的体积感） -->
+    <circle cx="66" cy="66" r="66" fill="url(#orbFloor)"/>
+    <!-- 高光 -->
+    <ellipse cx="50" cy="44" rx="26" ry="17" fill="url(#orbSheen)"
+             transform="rotate(-26 50 44)"/>
+    <ellipse cx="92" cy="104" rx="14" ry="7" fill="#8FD8FF" opacity=".14"
+             transform="rotate(-20 92 104)"/>
+
+    <!-- 一圈缓慢旋转的能量环（思考时会加速） -->
+    <circle class="ring" cx="66" cy="66" r="54" fill="none" stroke="url(#orbRing)"
+            stroke-width="1.8" stroke-dasharray="10 14" stroke-linecap="round"
+            opacity=".62"/>
+    <!-- 背光（hover / 思考时更亮） -->
+    <circle class="halo" cx="66" cy="66" r="58" fill="none" stroke="#7AA2FF"
+            stroke-opacity=".25" stroke-width="6"/>
+
+    <g class="body-g">
+      <g class="breathe">
+        <!-- 腮红 -->
+        <ellipse cx="44" cy="74" rx="9" ry="5" fill="#FF8FB0" opacity=".34"/>
+        <ellipse cx="88" cy="74" rx="9" ry="5" fill="#FF8FB0" opacity=".34"/>
+        <!-- 眼睛 -->
+        <g class="eyes">
+          <ellipse cx="52" cy="62" rx="6.4" ry="8" fill="#12203F"/>
+          <ellipse cx="80" cy="62" rx="6.4" ry="8" fill="#12203F"/>
+          <circle cx="54.4" cy="58.6" r="2.4" fill="#fff" opacity=".92"/>
+          <circle cx="82.4" cy="58.6" r="2.4" fill="#fff" opacity=".92"/>
+          <circle cx="49.6" cy="66" r="1.3" fill="#fff" opacity=".5"/>
+          <circle cx="77.6" cy="66" r="1.3" fill="#fff" opacity=".5"/>
+        </g>
+        <!-- 嘴 -->
+        <path class="mouth" d="M57 78 Q66 86 75 78" stroke="#12203F" stroke-width="3"
+              fill="none" stroke-linecap="round"/>
+      </g>
+    </g>
+
+    <!-- 环绕的小星星（悬停时才出现） -->
+    <g class="tags" opacity=".9">
+      <circle cx="36" cy="30" r="2" fill="#FFD479"/>
+      <circle cx="98" cy="36" r="1.7" fill="#8FD8FF"/>
+      <circle cx="92" cy="100" r="1.5" fill="#A78BFA"/>
+    </g>
+    <!-- 未读小红点 -->
+    <circle class="badge" cx="100" cy="34" r="5.5" fill="#FF7B7B" stroke="#0F1220"
+            stroke-width="2"/>
+  </svg>
+</div>
+
+<!-- ================= 面板 ================= -->
+<div id="panel">
+  <div id="bar" class="pywebview-drag-region">
+    <div class="meta">
+      <span id="dot"></span><span id="name">阿觉</span><span id="sub">连接中…</span>
+    </div>
+    <button class="ib" id="btnMin" title="收起成桌宠小球">—</button>
+    <button class="ib" id="btnSet" title="设置">⚙</button>
+  </div>
+
+  <div id="stage">
+    <svg id="mini" viewBox="0 0 72 72" width="72" height="72" aria-label="收起成球">
+      <defs>
+        <radialGradient id="mBody" cx="38%" cy="30%" r="72%">
+          <stop offset="0%" stop-color="#CDE4FF"/><stop offset="40%" stop-color="#8FBCFF"/>
+          <stop offset="100%" stop-color="#3456CE"/>
+        </radialGradient>
+        <radialGradient id="mHalo" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#7AA2FF" stop-opacity=".45"/>
+          <stop offset="100%" stop-color="#7AA2FF" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle class="halo" cx="36" cy="36" r="30" fill="url(#mHalo)"/>
+      <circle class="ring" cx="36" cy="36" r="27" fill="none" stroke="#7AA2FF"
+              stroke-width="1.2" stroke-dasharray="6 8" opacity=".5"/>
+      <g class="body-g">
+        <circle cx="36" cy="36" r="21" fill="url(#mBody)"/>
+        <circle cx="36" cy="36" r="21" fill="none" stroke="#BCD8FF" stroke-opacity=".4"/>
+        <ellipse cx="29" cy="29" rx="8" ry="5.4" fill="#fff" opacity=".45"
+                 transform="rotate(-24 29 29)"/>
+        <ellipse cx="28" cy="43" rx="3.6" ry="2" fill="#FF8FB0" opacity=".33"/>
+        <ellipse cx="44" cy="43" rx="3.6" ry="2" fill="#FF8FB0" opacity=".33"/>
+        <g class="eyes">
+          <ellipse cx="30" cy="38" rx="2.7" ry="3.5" fill="#152042"/>
+          <ellipse cx="42" cy="38" rx="2.7" ry="3.5" fill="#152042"/>
+          <circle cx="31" cy="36.8" r="1" fill="#fff" opacity=".9"/>
+          <circle cx="43" cy="36.8" r="1" fill="#fff" opacity=".9"/>
+        </g>
+        <g class="mouth-g">
+          <path d="M32.5 45.5 Q36 48.5 39.5 45.5" stroke="#152042" stroke-width="1.8"
+                fill="none" stroke-linecap="round"/>
+        </g>
+      </g>
+    </svg>
+    <div id="bubble" class="hide"></div>
+  </div>
+
+  <div id="log"></div>
+
+  <div id="row">
+    <input id="in" placeholder="跟阿觉说点什么…" autocomplete="off">
+    <button id="send">↑</button>
+  </div>
+
+  <!-- 工具条已移除：只留对话框；授权 / 工作区 / 语音 / 模型都在右上角「⚙ 设置」里 -->
+
+  <div id="sheet">
+    <header>
+      <button class="tab" data-tab="auth">授权</button>
+      <button class="tab" data-tab="ws">工作区</button>
+      <button class="tab" data-tab="voice">语音</button>
+      <button class="tab" data-tab="model">模型</button>
+      <button class="tab" data-tab="listen">监听</button>
+      <button class="tab" data-tab="state">状态</button>
+      <button class="tab" data-tab="about">关于</button>
+    </header>
+    <div id="sheetBody"></div>
+    <div id="sheetFoot">
+      <button class="btn dan" id="btnSleep">让阿觉休息</button>
+      <button class="btn" id="btnClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div id="menu">
+  <button id="miExpand">展开对话</button>
+  <button id="miCollapse">收起成小球</button>
+  <div class="sep"></div>
+  <button id="miSet">设置</button>
+  <div class="sep"></div>
+  <button id="miSleep" class="dan">让阿觉休息</button>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $ = function(id){ return document.getElementById(id); };
+function A(){ return (window.pywebview && window.pywebview.api) || null; }
+function P(v){ return Promise.resolve(v); }
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+function el(tag, cls, html){
+  var d = document.createElement(tag);
+  if(cls) d.className = cls;
+  if(html != null) d.innerHTML = html;
+  return d;
+}
+
+var orbEl = $('orb'), miniEl = $('mini'), stageEl = $('stage'), bubEl = $('bubble');
+var logEl = $('log'), inEl = $('in'), sendEl = $('send');
+var dotEl = $('dot'), subEl = $('sub'), nameEl = $('name');
+var sheetEl = $('sheet'), sheetBody = $('sheetBody'), menuEl = $('menu');
+var busy = false;
+
+/* 流式接收：宿主把阿觉的回复一段段推过来，字一个个蹦出来，体感更快 */
+window.__ajueNode = null;      // 当前正在「生长」的那条气泡
+var _ajueStarted = false;       // 本轮是否已经收到过第一帧
+window.__ajueAppend = function(t){
+  var n = window.__ajueNode; if(!n) return;
+  if(n.textContent === '…' || /^（正在联网查资料/.test(n.textContent)) n.textContent = '';
+  n.textContent += t;
+  if(!_ajueStarted){ _ajueStarted = true; thinking(false); }
+  logEl.scrollTop = logEl.scrollHeight;
+};
+window.__ajueFinish = function(t){
+  var n = window.__ajueNode;
+  if(n){ n.textContent = t; }
+  window.__ajueNode = null; _ajueStarted = false;
+  logEl.scrollTop = logEl.scrollHeight;
+};
+/* 常驻监听的状态推送（后端守护线程实时告知当前在干什么） */
+window.__ajueListenState = function(s){
+  S.listenState = s || {};
+  var box = document.getElementById('lsState');
+  if(box){
+    var cn = { idle:'待命中（没检测到人声）', waking:'听到人声，在判断是不是在叫我…',
+               listening:'正在听你说…', judge:'确认意图…', active:'正在回应…',
+               paused:'已暂停' };
+    box.textContent = '实时状态：' + (cn[s] || s || '—');
+  }
+};
+function needWeb(t){
+  return /https?:\/\/|www\.|\b(新闻|天气|气候|查一下|查一查|搜一下|搜一搜|搜索|最新|实时|几点|日期|周几|星期几|多少度|股价|汇率|热搜|热点|网址)\b/.test(t);
+}
+var S = { state:'orb', perms:{}, tts:null, status:null, scopes:[], tab:'auth' };
+
+/* 授权项：界面上说人话，括号里留个英文 id 方便对照日志 */
+var SCOPE_CN = {
+  observe_conversations: '看我在 Agent 里的对话',
+  speak_aloud: '开口说话（把回复念出来）',
+  proactive_schedule: '主动帮我记日程 / 提醒',
+  read_calendar: '读我的日程',
+  distill_minimind: '把记忆提炼进 mini MIND'
+};
+var DEFAULT_SCOPES = [
+  {id:'observe_conversations', desc:'阿觉会读你在 Agent 里的对话，用来认识你、学你说话的方式。不授权它就只是个陪聊。'},
+  {id:'speak_aloud', desc:'允许阿觉用语音把回复念出来（用的是下面「语音」页里选的那把嗓子）。'},
+  {id:'proactive_schedule', desc:'允许阿觉把你随口提到的事记成日程，到时候提醒你。'},
+  {id:'read_calendar', desc:'允许阿觉读你的日程，这样它才知道什么时候该提醒你。'},
+  {id:'distill_minimind', desc:'允许阿觉把日常记忆提炼进 mini MIND 小模型。每一次都会先问你、你点头才会做。'}
+];
+
+/* ---------------- 形态 ---------------- */
+function setState(st){
+  S.state = (st === 'panel') ? 'panel' : 'orb';
+  document.body.dataset.state = S.state;
+  if(S.state === 'panel'){ setTimeout(function(){ try{ inEl.focus(); }catch(e){} }, 60); }
+}
+function expand(){
+  var a=A(); if(!a) return;
+  P(a.expand()).then(function(){ setState('panel'); })
+   .catch(function(){ setState('panel'); });
+}
+function collapse(){
+  var a=A(); if(!a) return;
+  P(a.collapse()).then(function(){ setState('orb'); })
+   .catch(function(){ setState('orb'); });
+}
+
+/* 拖拽结束后把位置记下来（面板和球共用左上角） */
+function rememberPos(){
+  var a = A(); if(!a) return;
+  setTimeout(function(){
+    try{ a.save_pos(window.screenX|0, window.screenY|0); }catch(e){}
+  }, 80);
+}
+/* 点击 / 拖拽 二选一：移动超过 5px 就算拖拽，不再触发点击 */
+function clickOr(node, fn){
+  var sx=0, sy=0, down=false, moved=false;
+  node.addEventListener('mousedown', function(e){
+    if(e.button !== 0) return;
+    down = true; moved = false; sx = e.screenX; sy = e.screenY;
+  });
+  window.addEventListener('mousemove', function(e){
+    if(!down) return;
+    var dx = e.screenX - sx, dy = e.screenY - sy;
+    if(dx*dx + dy*dy > 25) moved = true;
+  });
+  window.addEventListener('mouseup', function(e){
+    if(!down) return;
+    down = false;
+    if(moved){ rememberPos(); return; }
+    if(e.button === 0){ fn(e); }
+  });
+}
+clickOr(orbEl, expand);
+clickOr(miniEl, collapse);
+
+/* ---------------- 右键菜单 ---------------- */
+function showMenu(x, y){
+  menuEl.style.left = Math.max(4, Math.min(x, 132 - 140)) + 'px';
+  menuEl.style.top  = Math.max(4, Math.min(y, 620 - 180)) + 'px';
+  $('miExpand').style.display   = (S.state === 'orb')   ? '' : 'none';
+  $('miCollapse').style.display = (S.state === 'panel') ? '' : 'none';
+  menuEl.classList.add('show');
+}
+function hideMenu(){ menuEl.classList.remove('show'); }
+document.addEventListener('contextmenu', function(e){
+  e.preventDefault();
+  hideMenu();
+  showMenu(e.clientX, e.clientY);
+});
+window.addEventListener('mousedown', function(e){
+  if(menuEl.classList.contains('show') && !menuEl.contains(e.target)) hideMenu();
+});
+$('miExpand').onclick   = function(){ hideMenu(); expand(); };
+$('miCollapse').onclick = function(){ hideMenu(); collapse(); };
+$('miSet').onclick      = function(){ hideMenu(); openSheet('auth'); };
+$('miSleep').onclick    = function(){ hideMenu(); sleep(); };
+
+/* ---------------- 聊天 ---------------- */
+function addMsg(text, cls){
+  var d = el('div', 'msg ' + (cls || 'aj'));
+  d.textContent = text;
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+  return d;
+}
+function bubble(text, ms){
+  if(!text) return;
+  bubEl.textContent = text;
+  bubEl.classList.remove('hide');
+  clearTimeout(bubEl._t);
+  bubEl._t = setTimeout(function(){ bubEl.classList.add('hide'); }, ms || 4600);
+}
+function speaking(on, ms){
+  orbEl.classList.toggle('speaking', !!on);
+  stageEl.classList.toggle('speaking', !!on);
+  if(on){ clearTimeout(speaking._t); speaking._t = setTimeout(function(){ speaking(false); }, ms || 4200); }
+}
+function thinking(on){
+  orbEl.classList.toggle('thinking', !!on);
+  stageEl.classList.toggle('thinking', !!on);
+}
+function send(){
+  var text = (inEl.value || '').trim();
+  var a = A();
+  if(!text || busy || !a) return;
+  busy = true; sendEl.disabled = true; inEl.value = '';
+  addMsg(text, 'me');
+  var wait = addMsg('…', 'aj');
+  window.__ajueNode = wait;          // 让宿主把流式文本推到这条气泡
+  _ajueStarted = false;
+  if(needWeb(text)) wait.textContent = '（正在联网查资料…）';
+  thinking(true);
+  P(a.chat(text)).then(function(reply){
+    var n = window.__ajueNode;
+    // 流式可能已写完；这里是兜底，确保最终文本正确落盘
+    if(n && n.textContent !== reply) n.textContent = reply;
+    window.__ajueNode = null; _ajueStarted = false;
+    bubble(reply, 5200);
+    if(S.ttsEnabled) speaking(true, 4000);
+  }).catch(function(e){
+    var n = window.__ajueNode;
+    if(n) n.textContent = '（出错了：' + e + '）';
+    window.__ajueNode = null; _ajueStarted = false;
+  }).then(function(){
+    busy = false; sendEl.disabled = false; thinking(false);
+    try{ inEl.focus(); }catch(e){}
+    logEl.scrollTop = logEl.scrollHeight;
+  });
+}
+sendEl.onclick = send;
+inEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') send(); });
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    if(sheetEl.classList.contains('show')) closeSheet();
+    else if(menuEl.classList.contains('show')) hideMenu();
+    else if(S.state === 'panel') collapse();
+  }
+});
+function clearChat(){
+  logEl.innerHTML = '';
+  var a = A(); if(a){ try{ a.clear_history(); }catch(e){} }
+}
+function sleep(){
+  if(!confirm('让阿觉休息？桌宠小球会消失。\n可以在 intent 的「市场 → 桌宠」里随时唤醒。')) return;
+  var a = A(); if(a){ try{ a.quit(); }catch(e){} }
+}
+
+/* ---------------- 顶栏 / 工具条 ---------------- */
+$('btnMin').onclick  = collapse;
+$('btnSet').onclick  = function(){ openSheet('auth'); };
+
+/* ---------------- 设置面板 ---------------- */
+var TABS = ['auth','ws','voice','model','listen','state','about'];
+function openSheet(tab){
+  S.tab = tab || 'auth';
+  Array.prototype.forEach.call(document.querySelectorAll('#sheet .tab'), function(b){
+    b.classList.toggle('on', b.dataset.tab === S.tab);
+  });
+  sheetEl.classList.add('show');
+  renderTab();
+}
+function closeSheet(){ sheetEl.classList.remove('show'); }
+$('btnClose').onclick = closeSheet;
+$('btnSleep').onclick = function(){ closeSheet(); sleep(); };
+Array.prototype.forEach.call(document.querySelectorAll('#sheet .tab'), function(b){
+  b.onclick = function(){ openSheet(b.dataset.tab); };
+});
+function renderTab(){
+  var a = A(); if(!a) return;
+  sheetBody.innerHTML = '<div class="empty">读取中…</div>';
+  if(S.tab === 'auth')  return renderAuth();
+  if(S.tab === 'voice') return P(a.tts_info()).then(function(t){ S.tts = t; renderVoice(); });
+  if(S.tab === 'ws')    return renderWs();
+  if(S.tab === 'model') return renderModel();
+  if(S.tab === 'listen') return renderListen();
+  if(S.tab === 'state') return renderState();
+  return renderAbout();
+}
+
+/* ---- 授权 ---- */
+function refreshPerms(){
+  var a = A(); if(!a) return;
+  return P(a.permissions()).then(function(p){
+    S.perms = p || {};
+    Array.prototype.forEach.call(document.querySelectorAll('#permList .sw input'), function(i){
+      i.checked = !!S.perms[i.dataset.scope];
+    });
+  });
+}
+function renderAuth(){
+  var a = A(); if(!a) return;
+  var scopes = (S.scopes && S.scopes.length) ? S.scopes : DEFAULT_SCOPES;
+  sheetBody.innerHTML = '';
+  sheetBody.appendChild(el('div','h5','阿觉想做的事，一件一件都先问过你'));
+  sheetBody.appendChild(el('div','tip',
+    '全部默认关闭。你可以随时打开或收回任意一项。收回之后，阿觉立刻不再使用这项能力——' +
+    '它始终是一个<b>装在你自己电脑上、替你一个人工作</b>的插件。'));
+  var list = el('div','card'); list.id = 'permList';
+  scopes.forEach(function(sc){
+    var row = el('div','rowline');
+    var t = el('div','t');
+    var head = el('b', null, esc(SCOPE_CN[sc.id] || sc.id));
+    var tag = el('span','sid', esc(sc.id));
+    head.appendChild(tag);
+    t.appendChild(head);
+    t.appendChild(el('span', null, esc(sc.desc)));
+    row.appendChild(t);
+    var lb = el('label','sw');
+    lb.innerHTML = '<input type="checkbox" data-scope="' + esc(sc.id) + '"' +
+                   (S.perms[sc.id] ? ' checked' : '') + '><i></i>';
+    lb.querySelector('input').addEventListener('change', function(){
+      var on = this.checked, scope = this.dataset.scope;
+      P(a.set_permission(scope, on)).then(function(r){ S.perms = r.permissions || {}; })
+       .catch(function(){ })
+       .then(function(){ addMsg((on ? '已授予：' : '已撤回：') + scope, 'sys'); });
+    });
+    row.appendChild(lb);
+    list.appendChild(row);
+  });
+  sheetBody.appendChild(list);
+
+  sheetBody.appendChild(el('div','h5','读完之后'));
+  var box = el('div','card');
+  var r1 = el('div','rowline');
+  var t1 = el('div','t');
+  t1.appendChild(el('b', null, '学习各工作区的会话'));
+  t1.appendChild(el('span', null, '需要上面第一项授权。会让阿觉更了解你说话的方式。'));
+  r1.appendChild(t1);
+  var b1 = el('button','btn','现在学一次');
+  b1.onclick = function(){
+    var a = A(); if(!a) return;
+    addMsg('正在读各工作区的会话…', 'sys');
+    P(a.learn()).then(function(r){
+      if(!r || !r.ok){ addMsg('学不了：' + ((r && (r.reason || r.error)) || '未知'), 'sys'); return; }
+      addMsg('学完了：扫了 ' + r.scanned + ' 句，新增记忆 ' + r.memory + ' 条' +
+             (r.style ? '，说话风格也更新了' : ''), 'sys');
+    });
+  };
+  r1.appendChild(b1); box.appendChild(r1);
+
+  var r2 = el('div','rowline');
+  var t2 = el('div','t');
+  t2.appendChild(el('b', null, '提炼进 mini MIND（小模型）'));
+  t2.appendChild(el('span', null, '会先把样本给你看，你点头了才会落盘。'));
+  r2.appendChild(t2);
+  var b2 = el('button','btn','问我要不要提炼');
+  b2.onclick = function(){
+    P(a.distill(true)).then(function(r){
+      addMsg((r && r.ok) ? ('提炼完成：' + JSON.stringify(r).slice(0,120))
+                         : ('没提炼成：' + ((r && (r.error || r.reason)) || '未知')), 'sys');
+    });
+  };
+  r2.appendChild(b2); box.appendChild(r2);
+  sheetBody.appendChild(box);
+  refreshPerms();
+}
+
+/* ---- 语音 ---- */
+function renderVoice(){
+  var t = S.tts || {}, openai = t.openai || {}, presets = t.presets || [];
+  var cur = (t.preset || 'edge');
+  sheetBody.innerHTML = '';
+  sheetBody.appendChild(el('div','h5','用哪家嗓子说话'));
+
+  var f1 = el('div','field');
+  f1.appendChild(el('label', null, '语音服务商（免费或有大额免费额度的一档）'));
+  var sel = document.createElement('select'); sel.id = 'vPreset';
+  presets.forEach(function(p){
+    var o = document.createElement('option');
+    o.value = p.id; o.textContent = p.name;
+    if(p.id === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+  f1.appendChild(sel);
+  var presetNote = el('div','tip', esc((presets.filter(function(p){ return p.id === cur; })[0] || {}).note || ''));
+  f1.appendChild(presetNote);
+  sel.onchange = function(){
+    var p = presets.filter(function(x){ return x.id === sel.value; })[0] || {};
+    presetNote.textContent = p.note || '';
+    var wrap = $('vOpenai');
+    if(wrap) wrap.style.display = (p.kind === 'openai') ? '' : 'none';
+    var a = A(); if(!a) return;
+    P(a.tts_preset(sel.value)).then(function(r){
+      if(r && r.ok){ S.tts = r.tts; renderVoice(); addMsg('已切换到：' + (p.name || sel.value), 'sys'); }
+      else addMsg('切换失败：' + ((r && r.error) || '未知'), 'sys');
+    });
+  };
+  sheetBody.appendChild(f1);
+
+  var wrap = el('div','card'); wrap.id = 'vOpenai';
+  var kind = (presets.filter(function(p){ return p.id === cur; })[0] || {}).kind;
+  wrap.style.display = (kind === 'openai' || kind === undefined) ? '' : 'none';
+  wrap.appendChild(el('div','tip','下面填的是 OpenAI 兼容的 POST &lt;接口地址&gt;/audio/speech。' +
+    '密钥留空时会自动借用宿主 intent 里已经配好的那把。'));
+  [['接口地址','base_url','api.siliconflow.cn/v1', openai.base_url],
+   ['模型','model','FunAudioLLM/CosyVoice2-0.5B', openai.model],
+   ['音色','voice','anna', openai.voice],
+   ['API Key（留空=用 intent 的）','api_key','sk-…', '']].forEach(function(f){
+    var fld = el('div','field');
+    fld.appendChild(el('label', null, f[0]));
+    var i = document.createElement('input');
+    i.id = 'v_' + f[1]; i.placeholder = f[2]; i.value = f[3] || '';
+    if(f[1] === 'api_key') i.type = 'password';
+    fld.appendChild(i); wrap.appendChild(fld);
+  });
+  sheetBody.appendChild(wrap);
+
+  var f2 = el('div','field');
+  f2.appendChild(el('label', null, '音色 / 嗓音'));
+  var vsel = document.createElement('select'); vsel.id = 'vVoice';
+  sheetBody.appendChild(f2);
+  var a0 = A();
+  if(a0){
+    P(a0.voices()).then(function(vs){
+      vsel.innerHTML = '';
+      (vs || []).forEach(function(v){
+        var o = document.createElement('option');
+        o.value = v.id; o.textContent = v.name + '（' + v.kind + '）';
+        if(v.id === (t.voice || '')) o.selected = true;
+        vsel.appendChild(o);
+      });
+      if(!(vs || []).length){
+        var o0 = document.createElement('option');
+        o0.textContent = '（当前通道没有可列音色，请在上方手填）'; vsel.appendChild(o0);
+      }
+    });
+  }
+
+  var ops = el('div','rowline');
+  var tt = el('div','t');
+  tt.appendChild(el('b', null, '自动朗读阿觉的回复'));
+  tt.appendChild(el('span', null, '关掉后只在点「试听」时才出声（同样需要上面那项「开口说话」授权）。'));
+  ops.appendChild(tt);
+  var lb = el('label','sw');
+  lb.innerHTML = '<input type="checkbox" id="vAuto"' + (S.ttsEnabled ? ' checked' : '') + '><i></i>';
+  ops.appendChild(lb);
+  sheetBody.appendChild(ops);
+  lb.querySelector('input').addEventListener('change', function(){
+    var a = A(); if(!a) return;
+    P(a.set_tts(this.checked)).then(function(){ S.ttsEnabled = !S.ttsEnabled; });
+  });
+
+  var rowBtn = el('div','rowline');
+  var bSave = el('button','btn pri','保存');
+  var bTry  = el('button','btn','试听一句');
+  rowBtn.appendChild(bSave); rowBtn.appendChild(bTry);
+  sheetBody.appendChild(rowBtn);
+
+  bSave.onclick = function(){
+    var a = A(); if(!a) return;
+    var patch = {};
+    if($('vVoice') && $('vVoice').value) patch.voice = $('vVoice').value;
+    if(wrap.style.display !== 'none'){
+      patch.openai = {
+        base_url: ($('v_base_url').value || '').trim(),
+        model:    ($('v_model').value || '').trim(),
+        voice:    ($('v_voice').value || '').trim(),
+      };
+      var k = ($('v_api_key').value || '').trim();
+      if(k) patch.openai.api_key = k;
+    }
+    P(a.tts_save(patch)).then(function(r){
+      if(r && r.ok){ S.tts = r.tts; addMsg('语音设置已保存。', 'sys'); renderVoice(); }
+      else addMsg('保存失败：' + ((r && r.error) || '未知'), 'sys');
+    });
+  };
+  bTry.onclick = function(){
+    var a = A(); if(!a) return;
+    var txt = '喂——听得到吗？现在这把嗓子你还满意吗？';
+    speaking(true, 6000);
+    P(a.speak(txt)).then(function(r){
+      if(!r || !r.ok){ speaking(false); addMsg('听不了：' + ((r && r.msg) || '未知'), 'sys'); }
+    });
+  };
+
+  var st = el('div','card');
+  st.style.marginTop = '10px';
+  st.innerHTML = '<div class="tip">当前可用通道：' + esc((t.chain || []).join(' → ') || '无') + '</div>' +
+                 '<div class="tip">配置文件：' + esc(t.config_path || '') + '</div>' +
+                 '<div class="tip">接口密钥：' + (t.openai_has_key ? '已填（或借用了 intent 的）' : '未填') + '</div>';
+  sheetBody.appendChild(st);
+}
+
+/* ---- 工作区 ---- */
+function renderWs(){
+  var a = A(); if(!a) return;
+  P(a.workspaces()).then(function(w){
+    sheetBody.innerHTML = '';
+    sheetBody.appendChild(el('div','h5','阿觉正在读这些工作区'));
+    sheetBody.appendChild(el('div','tip',
+      '工作区 = 一个 intent 项目根（其下有「会话」目录）。加上其它根，' +
+      '阿觉就能把你在那里的对话也读进来（需要先授予「观察对话」）。'));
+    var roots = w.roots || [];
+    if(!roots.length){
+      sheetBody.appendChild(el('div','empty','还没有额外的工作区（默认含宿主项目根）。'));
+    } else {
+      var box = el('div','card');
+      roots.forEach(function(r){
+        var row = el('div','wsrow');
+        row.appendChild(el('div','p', esc(r)));
+        var x = el('button','x','✕');
+        x.title = '移除这个工作区';
+        x.onclick = function(){
+          P(a.remove_workspace(r)).then(function(){ addMsg('已移除工作区：' + r, 'sys'); renderWs(); });
+        };
+        row.appendChild(x);
+        box.appendChild(row);
+      });
+      sheetBody.appendChild(box);
+    }
+    sheetBody.appendChild(el('div','h5','添加一个'));
+    var f = el('div','field');
+    var i = document.createElement('input');
+    i.id = 'wsInput'; i.placeholder = '工作区根目录，例如 D:\\我的项目';
+    f.appendChild(i); sheetBody.appendChild(f);
+    var b = el('button','btn pri','添加');
+    b.onclick = function(){
+      var v = (i.value || '').trim();
+      if(!v) return;
+      P(a.add_workspace(v)).then(function(r){
+        if(!r || !r.ok){ addMsg('加不进去：' + ((r && r.error) || '未知'), 'sys'); return; }
+        i.value = ''; addMsg('已加入工作区：' + v, 'sys'); renderWs();
+      });
+    };
+    sheetBody.appendChild(b);
+  });
+}
+
+/* ---- 模型（阿觉专属 / 日记）---- */
+function renderModel(){
+  var a = A(); if(!a) return;
+  P(a.ajue_config()).then(function(cfg){
+    cfg = cfg || {};
+    var cur = cfg.model || '';
+    var useShared = !cur;
+    sheetBody.innerHTML = '';
+    sheetBody.appendChild(el('div','h5','阿觉用哪个模型'));
+    sheetBody.appendChild(el('div','tip','默认和 intent 软件共用同一个模型；你也可以给阿觉单独指定一个（比如更轻的）。'));
+
+    var ops = el('div','rowline');
+    var tt = el('div','t');
+    tt.appendChild(el('b', null, '与 intent 共用模型（推荐）'));
+    tt.appendChild(el('span', null, '关掉后，在下面填一个阿觉专用的模型名。'));
+    ops.appendChild(tt);
+    var lb = el('label','sw');
+    lb.innerHTML = '<input type="checkbox" id="mShared"' + (useShared ? ' checked' : '') + '><i></i>';
+    ops.appendChild(lb);
+    sheetBody.appendChild(ops);
+
+    var fModel = el('div','field'); fModel.id = 'fModel';
+    fModel.style.display = useShared ? 'none' : '';
+    fModel.appendChild(el('label', null, '阿觉专用模型名'));
+    var iModel = document.createElement('input');
+    iModel.id = 'mModel'; iModel.placeholder = '例如 sensenova-6.8-flash-lite';
+    iModel.value = cur;
+    fModel.appendChild(iModel);
+    sheetBody.appendChild(fModel);
+    lb.querySelector('input').addEventListener('change', function(){
+      fModel.style.display = this.checked ? 'none' : '';
+    });
+
+    sheetBody.appendChild(el('div','h5','日记（自动写，用很少的 token）'));
+    var fDm = el('div','field');
+    fDm.appendChild(el('label', null, '日记专用轻量模型（可选，留空=用上方模型）'));
+    var iDm = document.createElement('input');
+    iDm.id = 'mDiaryModel'; iDm.placeholder = '轻量模型名，例如 xxx-lite';
+    iDm.value = cfg.diary_model || '';
+    fDm.appendChild(iDm); sheetBody.appendChild(fDm);
+
+    var fT = el('div','field');
+    fT.appendChild(el('label', null, '每天写日记的时间（HH:MM，默认 12:00）'));
+    var iT = document.createElement('input'); iT.id = 'mTime';
+    iT.value = cfg.diary_time || '12:00';
+    fT.appendChild(iT); sheetBody.appendChild(fT);
+
+    var rowBtn = el('div','rowline');
+    var bSave = el('button','btn pri','保存');
+    rowBtn.appendChild(bSave); sheetBody.appendChild(rowBtn);
+    bSave.onclick = function(){
+      var patch = {};
+      patch.model = $('mShared').checked ? '' : (($('mModel').value || '').trim());
+      patch.diary_model = ($('mDiaryModel').value || '').trim();
+      patch.diary_time = ($('mTime').value || '12:00').trim();
+      P(a.set_ajue_config(patch)).then(function(r){
+        if(r && r.ok){ addMsg('模型设置已保存。', 'sys'); }
+        else addMsg('保存失败：' + ((r && r.error) || '未知'), 'sys');
+      });
+    };
+  });
+}
+
+/* ---- 常驻监听 ---- */
+function renderListen(){
+  var a = A(); if(!a) return;
+  P(Promise.all([a.listen_status(), a.autostart_status()])).then(function(res){
+    var st = res[0] || {}, at = res[1] || {};
+    st = st || {};
+    var cfg = st.config || {};
+    sheetBody.innerHTML = '';
+    sheetBody.appendChild(el('div','h5','常驻监听'));
+    sheetBody.appendChild(el('div','tip',
+      '打开后阿觉会一直在后台听你说话。<b>没叫你的时候它只做「有没有人在说话」的静默检测</b>，' +
+      '不解析内容、不联网，几乎不耗电；只有听到唤醒词才会真正去听和理解，' +
+      '确认是在叫它之后才回答。全程没有弹窗，只在收到有效指令时用语音回应。'));
+
+    var ops = el('div','rowline');
+    var tt = el('div','t');
+    tt.appendChild(el('b', null, '启用常驻监听'));
+    tt.appendChild(el('span', null, '需要麦克风权限；建议插着充电器时开启。'));
+    ops.appendChild(tt);
+    var lb = el('label','sw');
+    lb.innerHTML = '<input type="checkbox" id="lsOn"' + (st.enabled ? ' checked' : '') + '><i></i>';
+    ops.appendChild(lb);
+    sheetBody.appendChild(ops);
+
+    var opsA = el('div','rowline');
+    var ttA = el('div','t');
+    ttA.appendChild(el('b', null, '开机自启'));
+    ttA.appendChild(el('span', null, '开机后阿觉在后台无窗口地守着，插着充电器时自动开始听。'));
+    opsA.appendChild(ttA);
+    var lbA = el('label','sw');
+    lbA.innerHTML = '<input type="checkbox" id="lsAuto"' + (at.enabled ? ' checked' : '') + '><i></i>';
+    opsA.appendChild(lbA);
+    sheetBody.appendChild(opsA);
+
+    var fW = el('div','field');
+    fW.appendChild(el('label', null, '唤醒词（用逗号分隔，默认：阿觉）'));
+    var iW = document.createElement('input');
+    iW.id = 'lsWords';
+    iW.placeholder = '阿觉, 小阿觉';
+    iW.value = (cfg.wake_words || ['阿觉']).join(', ');
+    fW.appendChild(iW); sheetBody.appendChild(fW);
+
+    var fM = el('div','field');
+    fM.appendChild(el('label', null, '语音识别模型（越大越准，也越吃 CPU）'));
+    var sel = document.createElement('select'); sel.id = 'lsModel';
+    [['tiny','tiny · 最快最省电'],['base','base · 推荐（够准）'],['small','small · 更准但更慢']].forEach(function(p){
+      var o = document.createElement('option');
+      o.value = p[0]; o.textContent = p[1];
+      if((cfg.asr_model || 'base') === p[0]) o.selected = true;
+      sel.appendChild(o);
+    });
+    fM.appendChild(sel); sheetBody.appendChild(fM);
+
+    var fP = el('div','field');
+    fP.appendChild(el('label', null, '电量策略'));
+    var sel2 = document.createElement('select'); sel2.id = 'lsPower';
+    [['ac_only','仅在插着充电器时监听（省电，推荐）'],['always','始终监听（更费电）']].forEach(function(p){
+      var o = document.createElement('option');
+      o.value = p[0]; o.textContent = p[1];
+      if((cfg.power_policy || 'ac_only') === p[0]) o.selected = true;
+      sel2.appendChild(o);
+    });
+    fP.appendChild(sel2); sheetBody.appendChild(fP);
+
+    sheetBody.appendChild(el('div','tip',
+      '小技巧：如果它老是把「阿觉」听成别的字（比如「阿卷」），' +
+      '把实际会被听到的写法一起填进上面的唤醒词里（逗号分隔），命中会稳很多。' +
+      '另外，要让它<b>用声音</b>回应你，需要在「授权」里打开<b>开口说话</b>。'));
+
+    var c = el('div','card');
+    var stateCn = { idle:'待命（未检测到人声）', waking:'检测到人声，判断是否在叫我…',
+                    listening:'正在听…', judge:'确认意图…', active:'正在回应…',
+                    paused:'已暂停' };
+    c.innerHTML = kv('监听状态', (st.running ? (stateCn[st.state] || st.state) : '未启动')) +
+                   kv('插电状态', st.ac_power === null ? '未知' : (st.ac_power ? '已插电' : '使用电池中')) +
+                   kv('开机自启', at.enabled ? '已开启' : '未设置') +
+                   kv('唤醒词', (cfg.wake_words || []).join('、'));
+    if(st.error) c.innerHTML += kv('错误', st.error);
+    sheetBody.appendChild(c);
+
+    var live = el('div','tip'); live.id = 'lsState';
+    sheetBody.appendChild(live);
+    if(S.listenState) window.__ajueListenState(S.listenState);
+
+    var rowBtn = el('div','rowline');
+    var bSave = el('button','btn pri','保存并应用');
+    rowBtn.appendChild(bSave); sheetBody.appendChild(rowBtn);
+    bSave.onclick = function(){
+      var words = ($('lsWords').value || '').split(/[,，]/).map(function(s){ return s.trim(); })
+                    .filter(function(s){ return s.length > 0; });
+      var patch = {
+        enabled: $('lsOn').checked,
+        wake_words: words.length ? words : ['阿觉'],
+        asr_model: $('lsModel').value,
+        power_policy: $('lsPower').value
+      };
+      P(a.listen_set(patch)).then(function(r){
+        if(!r || !r.ok){ addMsg('保存失败：' + ((r && r.error) || '未知'), 'sys'); return; }
+        P(a.autostart_set($('lsAuto').checked)).then(function(a2){
+          addMsg('监听设置已保存' + (r.running ? '，已开始监听。' : '。'), 'sys');
+          if(a2 && a2.message) addMsg(a2.message, 'sys');
+          renderListen();
+        });
+      });
+    };
+  });
+}
+
+/* ---- 状态 ---- */
+function renderState(){
+  var a = A(); if(!a) return;
+  P(a.status()).then(function(s){
+    S.status = s;
+    sheetBody.innerHTML = '';
+    sheetBody.appendChild(el('div','h5','连接'));
+    var c1 = el('div','card');
+    c1.innerHTML =
+      kv('人格', s.persona || '阿觉') + kv('语气', s.tone || '—') +
+      kv('通用 Agent', s.agent_online ? ('在线 · ' + (s.endpoint || '')) : '离线（阿觉说不出话）') +
+      kv('语音可用', (s.tts && s.tts.available) ? '是' : '否') +
+      kv('记忆条数', ((s.memory && s.memory.count) || 0));
+    sheetBody.appendChild(c1);
+
+    sheetBody.appendChild(el('div','h5','用户画像（L3）'));
+    var c2 = el('div','card');
+    c2.innerHTML = '<div class="tip" style="white-space:pre-wrap">' +
+                   esc(s.l3 || '（还没长出来，多聊几句就有了）') + '</div>';
+    sheetBody.appendChild(c2);
+
+    sheetBody.appendChild(el('div','h5','今天'));
+    var c3 = el('div','card');
+    c3.innerHTML = kv('日记目录', s.diary_dir || '—') +
+                   kv('mini MIND', s.minimind ? '可用' : '未接入') +
+                   kv('模型', (s.config && s.config.model) ? ('专属：' + s.config.model)
+                                                          : '与 intent 共用');
+    sheetBody.appendChild(c3);
+  });
+  function kv(k, v){
+    return '<div class="kv"><span>' + esc(k) + '</span><b>' + esc(v) + '</b></div>';
+  }
+}
+
+/* ---- 关于 ---- */
+function renderAbout(){
+  sheetBody.innerHTML = '';
+  sheetBody.appendChild(el('div','h5','这是什么'));
+  var c = el('div','card');
+  c.innerHTML =
+    '<div class="tip" style="white-space:pre-wrap">' +
+    esc('阿觉是装在这个 Agent 上的一个「companion 插件」，是你的生活助手：\n' +
+        '· 桌上这颗小球就是它本人，点一下展开对话，再点「—」缩回球。\n' +
+        '· 它陪你过日子——记日记、认得你、聊天解闷，不打扰你干活。\n' +
+        '· 它的记忆完全独立（plugin_data/ajue/），不会污染 intent 自己的记忆。\n' +
+        '· 它自己没有模型也没有密钥，说话走的是宿主 Agent 的本地端点；\n' +
+        '  宿主不在时它会自动退场，不留一个说不出话的空壳。\n' +
+        '· 想干什么都先问过你：授权、记忆提炼，每一项都能随时收回。\n\n' +
+        '（intent 本身更像一个办公用的智能体，负责处理工作事务；阿觉负责生活这一面。）') +
+    '</div>';
+  sheetBody.appendChild(c);
+  sheetBody.appendChild(el('div','h5','球上右键有菜单'));
+  var c2 = el('div','card');
+  c2.innerHTML = '<div class="tip">右键小球：展开 / 收起 / 清空聊天 / 设置 / 让它休息。' +
+                 '拖着小球可以把它放到桌面任意位置，位置会记住。</div>';
+  sheetBody.appendChild(c2);
+  sheetBody.appendChild(el('div','h5','如果球显示成黑方块'));
+  var c3 = el('div','card');
+  c3.innerHTML = '<div class="tip">个别机器上「裁成球的形状」会失效（表现为方角窗口）。' +
+                 '把 plugin_data/ajue/pet.json 里的 shaped 改成 false，' +
+                 '或用 --opaque 启动即可；不影响任何功能。</div>';
+  sheetBody.appendChild(c3);
+  sheetBody.appendChild(el('div','tip','版本：阿觉 v0.7 · 桌宠形态 · 支持常驻语音监听'));
+}
+
+/* ---------------- 启动 ---------------- */
+function boot(){
+  var a = A(); if(!a) return;
+  P(a.state()).then(function(s){ setState((s && s.state) || 'orb'); })
+   .catch(function(){ setState('orb'); });
+  P(a.status()).then(function(s){
+    nameEl.textContent = s.persona || '阿觉';
+    dotEl.classList.toggle('on', !!s.agent_online);
+    subEl.textContent = s.agent_online ? '在线' : '通用 Agent 离线';
+    S.scopes = s.scopes || [];
+    S.perms  = s.permissions || {};
+    S.ttsEnabled = !!s.tts_enabled;
+    S.tts = s.tts || null;
+    if(!s.agent_online) addMsg('通用 Agent 还不在，阿觉暂时说不出话。', 'sys');
+    greetings(s);
+  }).catch(function(){ subEl.textContent = '未连接'; });
+}
+var _greeted = false;
+function greetings(s){
+  if(_greeted) return; _greeted = true;
+  var a = A(); if(!a) return;
+  P(a.greet()).then(function(g){
+    var t = g || '我在呢。';
+    addMsg(t, 'aj');
+    bubble(t, 5200);
+    if(S.ttsEnabled) speaking(true, 3500);
+  });
+}
+if (window.pywebview && window.pywebview.api) { setTimeout(boot, 60); }
+else { window.addEventListener('pywebviewready', function(){ setTimeout(boot, 60); }); }
+})();
+</script>
+</body>
+</html>

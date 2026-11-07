@@ -1,0 +1,28 @@
+# INTENT-win 第三方依赖清单
+#
+# 正式运行不需要手动 pip install：本体自带完整运行时在
+#   runtime/python/       （Python 3.13 + 下面所有包）
+#   runtime/webview2/     （WebView2 固定版运行时，给主窗口用）
+#   runtime/chromium/     （Chrome for Testing，给内置浏览器窗口用）
+# find_python.ps1 会优先使用 runtime/python/python.exe。
+#
+# 只有「从源码重建一个干净环境」时才需要本文件：
+#   runtime\python\python.exe -m pip install -r requirements.txt
+
+# --- 桌面窗口 / 内置浏览器 ---
+# Windows 上 pywebview 走 edgechromium，需要 pythonnet 才能加载 WebView2 互操作程序集
+pywebview>=6.0,<7.0
+pythonnet>=3.0
+clr-loader>=0.2
+proxy-tools>=0.1
+bottle>=0.12
+
+# --- 文档读取（tools.py 的 read_doc 系列；不装会在离线环境降级失败）---
+PyPDF2>=3.0
+python-docx>=1.1
+openpyxl>=3.1
+python-pptx>=0.6
+
+# 说明：推理、工具总线、Agent 循环、CDP 客户端、安全校验全部使用标准库实现，
+# 刻意不引入 llama-cpp-python / torch / playwright 等需要本机编译或另下内核的重依赖。
+# 本地推理走「托管 llama-server 子进程」（见 配置.qdai 的 local_engine_* 段）。

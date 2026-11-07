@@ -68,3 +68,10 @@ browser-upgrade/*.zip
 
 # 安装器端到端验收临时目录
 tests/_e2e_install/
+
+# 便携版：本地镜像 / 构建产物 / 验收临时目录（都不是源码，绝不入库）
+# portable/release/ 是云端更新源，必须入库，不在此列
+portable/INTENT-Portable/
+portable/dist/
+portable/_factory_tmp/
+portable/_lnk_probe/

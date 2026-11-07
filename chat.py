@@ -18,7 +18,13 @@ import sys
 import time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-HOST, PORT = "127.0.0.1", 6800
+HOST = os.environ.get("INTENT_HOST", "127.0.0.1")
+# U 盘便携版用独立端口段，避免和宿主电脑上已装的 INTENT 抢 6800。
+# 普通桌面版不设该变量，行为完全不变。
+try:
+    PORT = int(os.environ.get("INTENT_PORT_6800", 6800))
+except (TypeError, ValueError):
+    PORT = 6800
 LOG_DIR = os.path.join(ROOT, "logs")
 LOG_PATH = os.path.join(LOG_DIR, "chat_engine.log")
 START_TIMEOUT = 30
