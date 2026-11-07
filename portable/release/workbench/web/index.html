@@ -2,388 +2,653 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>设备统一管理工作台</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+<title>INTENT · 工作台</title>
 <style>
-  :root {
-    --bg-app:#0a0c10; --bg-panel:#12161f; --bg-elev:#1a2030; --bg-input:#0b0e14;
-    --border:rgba(255,255,255,.07); --border-strong:rgba(255,255,255,.13);
-    --text:#e7e9ee; --muted:#93a0b4; --ter:#5f6c80;
-    --accent:#7c83ff; --accent2:#36c6e0;
-    --me-grad:linear-gradient(135deg,#7c83ff 0%,#36c6e0 100%);
-    --ok:#34d399; --bad:#f87171; --warn:#fbbf24;
-    --shadow-sm:0 1px 2px rgba(0,0,0,.5);
-    --shadow-md:0 10px 30px rgba(0,0,0,.45);
-    --shadow-lg:0 30px 70px rgba(0,0,0,.6);
-    --r-sm:9px; --r-md:13px; --r-lg:18px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background:
-      radial-gradient(1100px 600px at 88% -10%, rgba(124,131,255,.12), transparent 60%),
-      radial-gradient(900px 520px at -8% 108%, rgba(54,198,224,.09), transparent 55%),
-      var(--bg-app);
-    color: var(--text);
-    font-family: "Inter","PingFang SC","HarmonyOS Sans SC","Microsoft YaHei", system-ui, -apple-system, sans-serif;
-    padding: 28px;
-    -webkit-font-smoothing: antialiased;
-  }
-  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 16px; }
-  h1 { font-size: 22px; font-weight: 700; letter-spacing: .4px; display: flex; align-items: center; gap: 12px; }
-  h1::before { content: ""; width: 10px; height: 22px; border-radius: 4px; background: var(--me-grad); box-shadow: 0 0 12px rgba(124,131,255,.55); }
-  header small { color: var(--muted); font-size: 12.5px; }
-  .stats { display: flex; gap: 12px; flex-wrap: wrap; }
-  .stat { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--r-md);
-    padding: 10px 18px; font-size: 12.5px; color: var(--muted); box-shadow: var(--shadow-sm); min-width: 92px; }
-  .stat b { display: block; font-size: 20px; color: var(--text); font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
-  .card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--r-md);
-    padding: 18px; box-shadow: var(--shadow-sm); transition: .2s; }
-  .card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
-  .card h2 { font-size: 15px; margin-bottom: 5px; display: flex; align-items: center; gap: 9px; font-weight: 600; }
-  .card .note { color: var(--muted); font-size: 12px; margin-bottom: 12px; line-height: 1.5; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
-  .dot.online { background: var(--ok); box-shadow: 0 0 8px rgba(52,211,153,.7); }
-  .dot.offline { background: var(--bad); box-shadow: 0 0 8px rgba(248,113,113,.6); }
-  .dot.undeployed { background: var(--ter); }
-  .port { display: flex; justify-content: space-between; align-items: center; padding: 7px 11px; border-radius: 8px;
-    font-size: 12.5px; margin-top: 5px; background: rgba(255,255,255,.03); border: 1px solid var(--border); }
-  .port .ok { color: var(--ok); font-weight: 500; }
-  .port .bad { color: var(--bad); font-weight: 500; }
-  .port .gray { color: var(--ter); }
-  .proxy { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  button { background: var(--me-grad); color: #0a0c10; border: 0; border-radius: 10px; padding: 8px 15px;
-    font-weight: 600; cursor: pointer; font-size: 13px; transition: .18s; box-shadow: 0 6px 16px rgba(124,131,255,.32); }
-  button:hover { filter: brightness(1.07); }
-  button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
-  button.ghost { background: rgba(255,255,255,.03); color: var(--muted); border: 1px solid var(--border); font-weight: 500; box-shadow: none; }
-  button.ghost:hover { color: var(--text); border-color: var(--border-strong); }
-  button.danger { background: transparent; color: var(--bad); border: 1px solid rgba(248,113,113,.35); font-weight: 500; box-shadow: none; }
-  button.danger:hover { background: rgba(248,113,113,.12); }
-  pre { background: var(--bg-input); border: 1px solid var(--border); border-radius: 9px; padding: 11px; font-size: 12px;
-    overflow: auto; margin-top: 10px; max-height: 220px; white-space: pre-wrap; word-break: break-all;
-    font-family: "JetBrains Mono", Consolas, monospace; color: #aeb8c8; }
-  .muted { color: var(--muted); font-size: 12px; }
-  .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
-  .card-actions { display: flex; gap: 8px; margin-top: 14px; }
-  .card-actions button { padding: 6px 13px; font-size: 12.5px; }
-  .badge { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 2px 10px; }
-  /* 弹窗 */
-  .overlay { position: fixed; inset: 0; background: rgba(6,8,12,.62); backdrop-filter: blur(8px);
-    display: none; align-items: center; justify-content: center; z-index: 50; }
-  .overlay.show { display: flex; animation: fade .2s ease; }
-  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-  .modal { background: rgba(20,24,33,.92); border: 1px solid var(--border-strong); border-radius: var(--r-lg);
-    padding: 24px 26px; width: 440px; max-width: 92vw; box-shadow: var(--shadow-lg); backdrop-filter: blur(20px);
-    animation: pop .22s cubic-bezier(.2,.8,.2,1); }
-  @keyframes pop { from { transform: translateY(10px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
-  .modal h3 { font-size: 17px; margin-bottom: 16px; font-weight: 700; }
-  .modal label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 6px; font-weight: 500; }
-  .modal input[type=text] { width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: var(--text);
-    border-radius: 10px; padding: 9px 12px; font-size: 13px; font-family: inherit; outline: 0; transition: .18s; }
-  .modal input[type=text]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,131,255,.15); }
-  .modal .row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: var(--text); }
-  .modal .row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
-  .modal .hint { color: var(--muted); font-size: 11px; margin-top: 5px; line-height: 1.6; }
-  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-  .err { color: var(--bad); font-size: 12px; margin-top: 10px; min-height: 16px; }
+:root{
+  --bg:#0b0e14; --side:#0d111a; --panel:#141a25; --elev:#1a2130; --input:#0a0d14;
+  --line:rgba(255,255,255,.075); --line2:rgba(255,255,255,.145);
+  --text:#e9edf5; --muted:#94a1b8; --dim:#63718a;
+  --a:#7c83ff; --b:#36c6e0; --ok:#34d399; --bad:#f87171; --warn:#fbbf24;
+  --grad:linear-gradient(135deg,#7c83ff 0%,#36c6e0 100%);
+  --r:16px; --shadow:0 14px 40px rgba(0,0,0,.34);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:"Inter","PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;font-size:14px;min-height:100vh}
+.app{display:flex;min-height:100vh}
+.side{width:228px;flex:0 0 228px;background:var(--side);border-right:1px solid var(--line);
+  padding:22px 14px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:11px;padding:2px 8px 26px}
+.logo .mark{width:34px;height:34px;border-radius:10px;background:var(--grad);display:grid;place-items:center;
+  color:#0b0e14;font-weight:900;font-size:17px;box-shadow:0 8px 22px rgba(124,131,255,.34)}
+.logo b{font-size:15px;letter-spacing:.4px;display:block;line-height:1.2}
+.logo small{font-size:10.5px;color:var(--dim);letter-spacing:1.2px;text-transform:uppercase}
+.navlabel{font-size:10px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;padding:0 12px;margin:6px 0 10px}
+.nav{display:flex;flex-direction:column;gap:3px}
+.nav button{display:flex;align-items:center;gap:11px;width:100%;background:transparent;border:0;color:var(--muted);
+  padding:11px 12px;border-radius:11px;font-size:13.5px;font-weight:550;cursor:pointer;text-align:left;font-family:inherit;
+  transition:.16s;position:relative}
+.nav button svg{width:17px;height:17px;flex:0 0 17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nav button:hover{background:rgba(255,255,255,.045);color:var(--text)}
+.nav button.on{background:linear-gradient(90deg,rgba(124,131,255,.18),rgba(54,198,224,.06));color:#fff;font-weight:650}
+.nav button.on::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--grad)}
+.nav button .cnt{margin-left:auto;font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.sidefoot{margin-top:auto;padding:14px 10px 2px;border-top:1px solid var(--line);font-size:11px;color:var(--dim);line-height:1.7}
+.sidefoot a{color:var(--muted);text-decoration:none}
+.sidefoot a:hover{color:var(--b)}
+.main{flex:1;min-width:0;padding:0 30px 60px;max-width:1500px}
+.topbar{position:sticky;top:0;z-index:20;background:rgba(11,14,20,.82);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:18px 0 16px;margin-bottom:24px;flex-wrap:wrap}
+.topbar h1{font-size:19px;font-weight:750;letter-spacing:.2px;display:flex;align-items:center;gap:10px}
+.topbar h1 .bar{width:4px;height:19px;border-radius:3px;background:var(--grad)}
+.topbar .sub{font-size:11.5px;color:var(--dim);margin-top:4px;padding-left:14px}
+.tools{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.live{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);
+  border:1px solid var(--line);border-radius:99px;padding:6px 12px}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 9px var(--ok)}
+button.btn{background:var(--grad);color:#0b0e14;border:0;border-radius:10px;padding:9px 15px;font-size:12.5px;
+  font-weight:700;cursor:pointer;font-family:inherit;transition:.16s;box-shadow:0 5px 16px rgba(124,131,255,.22);text-decoration:none;display:inline-block}
+button.btn:hover{filter:brightness(1.09)}
+button.btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+button.ghost{background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--line);font-weight:550;box-shadow:none}
+button.ghost:hover{color:var(--text);border-color:var(--line2)}
+button.sm{padding:6px 11px;font-size:11.5px;border-radius:8px}
+button.danger{background:transparent;color:var(--bad);border:1px solid rgba(248,113,113,.32);font-weight:550;box-shadow:none}
+button.danger:hover{background:rgba(248,113,113,.1)}
+.view{display:none;animation:fade .22s ease}.view.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.hidden{display:none!important}
+.grid{display:grid;gap:15px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(196px,1fr));margin-bottom:18px}
+.kpi{background:linear-gradient(155deg,rgba(124,131,255,.075),transparent 60%),var(--panel);
+  border:1px solid var(--line);border-radius:var(--r);padding:18px 19px;position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;left:0;top:0;width:100%;height:2px;background:var(--grad);opacity:.65}
+.kpi .l{font-size:11.5px;color:var(--muted);letter-spacing:.3px;display:flex;align-items:center;gap:7px}
+.kpi .v{font-size:29px;font-weight:780;letter-spacing:-.8px;margin-top:9px;font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi .v small{font-size:13px;color:var(--muted);font-weight:550;letter-spacing:0;margin-left:4px}
+.kpi .d{font-size:11px;color:var(--dim);margin-top:7px}
+.two{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;box-shadow:var(--shadow)}
+.panel h2{font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:3px}
+.panel .hint{font-size:11.5px;color:var(--dim);line-height:1.65;margin-bottom:16px}
+.sec-title{font-size:13px;font-weight:700;margin:26px 0 12px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.sec-title .n{font-size:11px;color:var(--dim);font-weight:550}
+.badge{font-size:10.5px;border:1px solid var(--line2);color:var(--muted);border-radius:99px;padding:3px 9px;white-space:nowrap}
+.badge.ok{color:var(--ok);border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.07)}
+.badge.warn{color:var(--warn);border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.07)}
+.badge.acc{color:#a9aeff;border-color:rgba(124,131,255,.38);background:rgba(124,131,255,.08)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 8px;background:var(--dim)}
+.dot.on{background:var(--ok);box-shadow:0 0 8px rgba(52,211,153,.75)}
+.dot.off{background:var(--bad);box-shadow:0 0 8px rgba(248,113,113,.6)}
+.empty{color:var(--dim);font-size:12.5px;text-align:center;padding:30px 12px;line-height:1.8}
+.empty b{color:var(--muted);font-weight:600}
+.bar{height:7px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin:9px 0 6px}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--grad);transition:width .5s ease}
+.bar.low i{background:linear-gradient(90deg,#fbbf24,#f87171)}
+.qrow{padding:12px 0;border-bottom:1px solid var(--line)}
+.qrow:last-child{border-bottom:0;padding-bottom:2px}
+.qrow .top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.qrow .nm{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.qrow .num{font-size:13px;font-variant-numeric:tabular-nums;color:var(--text);font-weight:650}
+.qrow .meta{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;gap:8px}
+.chart{display:flex;align-items:flex-end;gap:8px;height:118px;padding-top:12px}
+.chart .col{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end}
+.chart .stick{width:100%;max-width:38px;background:linear-gradient(180deg,var(--a),rgba(54,198,224,.55));border-radius:6px 6px 3px 3px;min-height:3px;transition:height .5s}
+.chart .lb{font-size:10px;color:var(--dim);white-space:nowrap}
+.chart .vl{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:17px 18px;transition:.18s}
+.card:hover{border-color:var(--line2);transform:translateY(-2px);box-shadow:var(--shadow)}
+.card .hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:4px}
+.card h3{font-size:14px;font-weight:700;display:flex;align-items:center;gap:9px;min-width:0}
+.card h3 span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .sub{font-size:11.5px;color:var(--dim);line-height:1.6;margin-bottom:12px}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--muted);padding:5px 0;border-bottom:1px dashed var(--line)}
+.kv:last-of-type{border-bottom:0}
+.kv b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.big-num{font-size:27px;font-weight:780;letter-spacing:-.6px;font-variant-numeric:tabular-nums;margin:6px 0 2px}
+.big-num small{font-size:12px;color:var(--muted);font-weight:550;margin-left:5px;letter-spacing:0}
+.ports{margin-top:8px}
+.port{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 9px;background:rgba(255,255,255,.028);
+  border:1px solid var(--line);border-radius:7px;margin-top:5px}
+.port .g{color:var(--ok)}.port .r{color:var(--bad)}.port .n{color:var(--dim)}
+.bind{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:center}
+.code{font-size:27px;font-weight:780;letter-spacing:4px;background:var(--input);border:1px solid var(--line2);
+  border-radius:11px;padding:10px 16px;display:inline-block;font-variant-numeric:tabular-nums;margin:8px 0}
+.qrbox{text-align:center}
+.qrbox img{width:148px;height:148px;background:#fff;border-radius:12px;padding:8px;display:block}
+.fieldrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+input,select,textarea{background:var(--input);border:1px solid var(--line2);color:var(--text);border-radius:9px;
+  padding:9px 11px;font-size:12.5px;outline:0;font-family:inherit;min-width:0}
+input:focus,select:focus,textarea:focus{border-color:var(--a);box-shadow:0 0 0 3px rgba(124,131,255,.13)}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--a);padding:0}
+label.lb{display:block;font-size:11.5px;color:var(--muted);margin:13px 0 6px;font-weight:550}
+.note{font-size:11px;color:var(--dim);line-height:1.65;margin-top:6px}
+.banner{border:1px solid rgba(251,191,36,.28);background:rgba(251,191,36,.06);border-radius:12px;
+  padding:13px 15px;font-size:12px;color:#e8d9a8;line-height:1.75;margin-bottom:16px}
+.banner b{color:var(--warn)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--elev);
+  border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.switch .t{font-size:13px;font-weight:650}
+.switch .d{font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.6}
+.sw{position:relative;width:44px;height:25px;flex:0 0 44px}
+.sw input{opacity:0;width:0;height:0}
+.sw i{position:absolute;inset:0;background:rgba(255,255,255,.12);border-radius:99px;cursor:pointer;transition:.2s}
+.sw i::before{content:"";position:absolute;width:19px;height:19px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.sw input:checked + i{background:var(--a)}
+.sw input:checked + i::before{transform:translateX(19px)}
+.overlay{position:fixed;inset:0;background:rgba(5,7,11,.7);backdrop-filter:blur(9px);display:none;
+  align-items:center;justify-content:center;z-index:60;padding:18px}
+.overlay.show{display:flex}
+.modal{background:linear-gradient(160deg,rgba(124,131,255,.07),transparent 45%),#151b27;
+  border:1px solid var(--line2);border-radius:18px;padding:23px 24px;width:460px;max-width:100%;
+  max-height:88vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.65);animation:pop .2s cubic-bezier(.2,.8,.2,1)}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.modal h3{font-size:16px;margin-bottom:15px;font-weight:750}
+.modal .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal input[type=text],.modal input[type=number],.modal input[type=password],.modal select,.modal textarea{width:100%}
+.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}
+.err{color:var(--bad);font-size:11.5px;margin-top:9px;min-height:15px;line-height:1.5}
+.okmsg{color:var(--ok)}
+.inline{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text);margin-top:12px}
+.feed{display:flex;flex-direction:column;gap:9px;max-height:220px;overflow:auto}
+.feed .it{background:var(--elev);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6}
+.feed .it .w{font-size:10.5px;color:var(--b);font-weight:700;margin-bottom:3px}
+.feed .it .d{font-size:10px;color:var(--dim);margin-top:4px}
+.tiers{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:13px}
+.tier .free{font-size:11.5px;color:var(--muted);line-height:1.65;margin:9px 0 12px;min-height:38px}
+.tier .vendor{font-size:10.5px;color:var(--dim);letter-spacing:.4px}
+.attach{display:none;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line2)}
+.attach.show{display:block}
+.attach input{width:100%;margin-bottom:7px}
+@media(max-width:980px){.two{grid-template-columns:1fr}.bind{grid-template-columns:1fr}}
+@media(max-width:860px){
+  .app{flex-direction:column}
+  .side{width:100%;flex:none;height:auto;position:relative;padding:12px 14px;border-right:0;border-bottom:1px solid var(--line)}
+  .logo{padding:0 2px 12px}.navlabel,.sidefoot{display:none}
+  .nav{flex-direction:row;overflow-x:auto;gap:5px}
+  .nav button{white-space:nowrap;padding:9px 12px}
+  .nav button.on::before{display:none}
+  .nav button .cnt{display:none}
+  .main{padding:0 15px 50px}
+  .topbar{padding:14px 0 12px}
+  .kpi .v{font-size:24px}
+}
 </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>设备统一管理工作台</h1>
-    <small id="updated">加载中...</small>
-  </div>
-  <div class="stats">
-    <div class="stat">在线设备 <b id="st-online">-</b></div>
-    <div class="stat">总设备 <b id="st-total">-</b></div>
-    <div class="stat">未部署 <b id="st-undeployed">-</b></div>
-    <div class="stat">API代理 <b id="st-proxy">-</b></div>
-  </div>
-</header>
-<div class="toolbar">
-  <button onclick="loadDevices()">刷新状态</button>
-  <button onclick="refreshProxy()">刷新代理</button>
-  <button onclick="genKey()" id="btn-key">生成API令牌</button>
-  <button onclick="openAdd()">+ 添加设备</button>
-</div>
+<div class="app">
+  <aside class="side">
+    <div class="logo"><span class="mark">I</span><div><b>INTENT</b><small>Workbench</small></div></div>
+    <div class="navlabel">CONSOLE</div>
+    <nav class="nav" id="nav">
+      <button class="on" data-v="overview" onclick="go('overview')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>总览</button>
+      <button data-v="devices" onclick="go('devices')">
+        <svg viewBox="0 0 24 24"><rect x="2" y="4" width="14" height="11" rx="2"/><path d="M6 19h6M8 15v4"/><rect x="17" y="9" width="5" height="10" rx="1.5"/></svg>设备<span class="cnt" id="navDev">0</span></button>
+      <button data-v="usage" onclick="go('usage')">
+        <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-7 4 4"/><path d="M3 21h18"/></svg>用量</button>
+      <button data-v="quota" onclick="go('quota')">
+        <svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg>额度雷达</button>
+    </nav>
+    <div class="sidefoot">
+      免安装 · 数据都在本体<br>
+      <a href="/node" target="_blank">把这台设备加入 →</a>
+    </div>
+  </aside>
 
-<div class="card" id="bindCard" style="border-color:rgba(124,131,255,.35);box-shadow:0 0 0 1px rgba(124,131,255,.12),var(--shadow-sm)">
-  <h2>📲 设备绑定（配对码 / 二维码）</h2>
-  <div class="note">手机扫码自动绑定；电脑输入配对码绑定；带摄像头的设备均可扫码。配对码是通用的 —— 手机 / 电脑都能直接输入。</div>
-  <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin-top:14px">
-    <div style="flex:1;min-width:240px">
-      <div class="muted" style="margin-bottom:6px">配对码（通用：手机 / 电脑均可输入）</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <code id="bindCode" style="font-size:26px;font-weight:700;letter-spacing:3px;color:#fff;background:var(--bg-input);padding:8px 14px;border-radius:10px;border:1px solid var(--border)">------</code>
-        <button class="ghost" onclick="copyCode()">复制</button>
-        <button class="ghost" onclick="refreshCode()">刷新配对码</button>
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1><span class="bar"></span><span id="title">总览</span></h1>
+        <div class="sub" id="subtitle">引擎、设备与额度的实时状态</div>
       </div>
-      <div class="muted" id="bindExpire" style="margin-top:8px"></div>
-      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center">
-        <input id="bindInput" placeholder="输入配对码（电脑端）" style="flex:1;min-width:130px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 12px;font-size:13px;font-family:inherit;outline:0">
-        <input id="bindName" placeholder="设备名称（可选）" style="flex:1;min-width:130px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 12px;font-size:13px;font-family:inherit;outline:0">
-        <button onclick="bindByCode()">绑定</button>
+      <div class="tools">
+        <span class="live"><i></i><span id="clock">--:--:--</span></span>
+        <button class="btn ghost sm" onclick="loadAll()">刷新</button>
+        <button class="btn sm" onclick="go('devices');openAdd()">+ 添加设备</button>
       </div>
-      <div class="err" id="bindErr"></div>
     </div>
-    <div style="text-align:center">
-      <div class="muted" style="margin-bottom:6px">二维码（手机 / 摄像头设备扫描）</div>
-      <img id="bindQr" alt="绑定二维码" style="width:168px;height:168px;background:#fff;border-radius:12px;padding:8px;display:block">
-      <div class="muted" style="margin-top:6px;font-size:11px">扫描后自动打开绑定页并带出配对码</div>
-    </div>
-  </div>
+
+    <section class="view on" id="v-overview">
+      <div class="grid kpis" id="kpis"></div>
+      <div class="grid two">
+        <div class="panel">
+          <h2>近 7 天 Token 用量 <span class="badge" id="trendTotal">-</span></h2>
+          <div class="hint">由 INTENT 每次调用后本地累计；不等同于厂商账单。</div>
+          <div class="chart" id="chart"><div class="empty">加载中</div></div>
+        </div>
+        <div class="panel">
+          <h2>额度速览 <button class="btn ghost sm" onclick="go('usage')">详情</button></h2>
+          <div class="hint">每档都标了数据来源，不会把估算冒充官方余额。</div>
+          <div id="quickQuota"><div class="empty">加载中</div></div>
+        </div>
+      </div>
+      <div class="sec-title">设备动态 <span class="n" id="feedN"></span></div>
+      <div class="panel"><div class="feed" id="feed"><div class="empty">加载中</div></div></div>
+    </section>
+
+    <section class="view" id="v-devices">
+      <div class="panel" style="margin-bottom:18px">
+        <h2>让其它设备加入 <span class="badge acc">零安装</span></h2>
+        <div class="hint">手机 / 平板 / 别人的电脑：扫码或输配对码，浏览器里就成为一个节点，不用装工作台、不写注册表。</div>
+        <div class="bind">
+          <div>
+            <div style="font-size:11.5px;color:var(--muted)">当前配对码（15 分钟内有效）</div>
+            <div class="code" id="bindCode">------</div>
+            <div class="fieldrow">
+              <input id="bindInput" placeholder="输入配对码" style="flex:1;min-width:120px">
+              <input id="bindName" placeholder="设备名称（可选）" style="flex:1;min-width:130px">
+              <button class="btn sm" onclick="bindByCode()">绑定</button>
+              <button class="btn ghost sm" onclick="copyCode()">复制码</button>
+              <button class="btn ghost sm" onclick="refreshCode()">换一个</button>
+            </div>
+            <div class="fieldrow">
+              <a href="/node" target="_blank" class="btn ghost sm">直接打开设备页</a>
+              <span class="note" style="margin:0" id="bindExpire"></span>
+            </div>
+            <div class="err" id="bindErr"></div>
+          </div>
+          <div class="qrbox">
+            <img id="bindQr" alt="绑定二维码">
+            <div class="note">扫码即绑定</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-title">免安装节点 <span class="n" id="nodeN"></span></div>
+      <div class="cards" id="nodes"><div class="empty">加载中</div></div>
+
+      <div class="sec-title">登记设备 <span class="n" id="devN"></span>
+        <span style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn ghost sm" onclick="refreshProxy()">检查 API 中转</button>
+          <button class="btn ghost sm" onclick="genKey()">生成令牌</button>
+        </span>
+      </div>
+      <div class="cards" id="devices"><div class="empty">加载中</div></div>
+      <div class="panel" style="margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div><b style="font-size:13px">API 中转 (LiteLLM)</b><div class="note" id="proxy-status">未检测</div></div>
+          <span class="dot" id="proxy-dot"></span>
+        </div>
+        <pre id="proxy-key-result" class="hidden" style="background:var(--input);border:1px solid var(--line);border-radius:9px;padding:11px;font-size:11.5px;overflow:auto;margin-top:10px;color:#aeb8c8"></pre>
+        <div class="note" id="proxy-url"></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-usage">
+      <div class="panel" style="margin-bottom:16px">
+        <h2>取数方式 <span class="badge">决定数字的可靠性</span></h2>
+        <div class="hint">三档按可信度排序。能取到官方接口就用官方；没有官方接口时，内置 Chromium 会带着你登录过的用量页读取；两者都做不到就只显示本机累计的「已用」。</div>
+        <div class="grid kpis" style="margin:0">
+          <div class="kpi"><div class="l"><span class="badge ok">官方接口</span></div><div class="v" style="font-size:17px">精确余额</div><div class="d">厂商提供用量 API 时最准，配 URL 与字段路径即可。</div></div>
+          <div class="kpi"><div class="l"><span class="badge warn">内置浏览器</span></div><div class="v" style="font-size:17px">页面读数</div><div class="d">带登录态读控制台；页面改版或登录过期会失效，会明确提示。</div></div>
+          <div class="kpi"><div class="l"><span class="badge">本机累计</span></div><div class="v" style="font-size:17px">已用 token</div><div class="d">每次调用精确累计；只有填了套餐总量才能估算剩余。</div></div>
+        </div>
+      </div>
+      <div class="sec-title">供应商额度
+        <span style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn ghost sm" onclick="loadUsage(true)">刷新余额</button>
+          <button class="btn sm" onclick="openProv()">+ 新增供应商</button>
+        </span>
+      </div>
+      <div class="cards" id="usageCards"><div class="empty">加载中</div></div>
+      <div class="sec-title">近 7 天趋势</div>
+      <div class="panel"><div class="chart" id="chart2"></div></div>
+    </section>
+
+    <section class="view" id="v-quota">
+      <div class="banner" id="policy"><b>边界说明</b> · 只收录厂商官方公开的免费层 / 新客额度，用你自己的账号领取。不搜集、不试用任何来路不明或他人泄露的 Key。</div>
+      <div class="switch">
+        <div>
+          <div class="t">简单任务自动走免费额度</div>
+          <div class="d">只对「短、无工具调用」的问答生效；Agent 多轮、写代码、长文等任务仍走主力套餐。关闭时一切照旧。</div>
+        </div>
+        <label class="sw"><input type="checkbox" id="autoRoute" onchange="setRoute(this.checked)"><i></i></label>
+      </div>
+      <div class="panel" style="margin-bottom:16px">
+        <h2>每日巡检 <span class="badge" id="scanTime">尚未巡检</span></h2>
+        <div class="hint">工作台运行时每天自动检查各官方入口是否可达。不抓取任何 Key，不自动注册账号。</div>
+        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+          <button class="btn sm" id="scanBtn" onclick="scan()">立即巡检</button>
+          <span class="note" style="margin:0" id="scanInfo">-</span>
+        </div>
+      </div>
+      <div class="sec-title">官方免费层目录 <span class="n" id="tierN"></span></div>
+      <div class="tiers" id="tiers"><div class="empty">加载中</div></div>
+      <div class="sec-title">已接入 <span class="n" id="attachedN"></span></div>
+      <div class="cards" id="attached"></div>
+    </section>
+  </main>
 </div>
 
-<div class="grid" id="devices"></div>
+<div class="overlay" id="overlay"><div class="modal">
+  <h3 id="modal-title">添加设备</h3>
+  <label class="lb">设备名称 *</label><input type="text" id="f-name" placeholder="例如 客厅台式机">
+  <label class="lb">设备地址 *</label><input type="text" id="f-host" placeholder="局域网 IP 或 127.0.0.1">
+  <div class="note">本机填 127.0.0.1；局域网设备填它的 IP。</div>
+  <label class="lb">探活端口</label><input type="text" id="f-ports" placeholder="6800:对话, 6802:对外API">
+  <div class="note">多个用逗号分隔，可写「端口:用途」；留空表示只登记。</div>
+  <label class="lb">备注</label><input type="text" id="f-note" placeholder="可选">
+  <div class="inline"><input type="checkbox" id="f-deployed" checked><label for="f-deployed">已部署（参与探活）</label></div>
+  <div class="err" id="f-err"></div>
+  <div class="modal-actions"><button class="btn ghost sm" onclick="closeM('overlay')">取消</button><button class="btn sm" id="btn-save" onclick="submitForm()">保存</button></div>
+</div></div>
 
-<h2 style="margin: 24px 0 12px; font-size: 15px; font-weight: 600;">API 中转 (LiteLLM)</h2>
-<div class="card">
-  <div class="proxy">
-    <div>
-      <b id="proxy-url">-</b>
-      <div class="muted" id="proxy-status">未检测</div>
-    </div>
-    <span class="dot" id="proxy-dot"></span>
-  </div>
-  <pre id="proxy-key-result" style="display:none;"></pre>
-</div>
+<div class="overlay" id="msgOverlay"><div class="modal" style="width:400px">
+  <h3>给节点发消息</h3>
+  <div class="note" id="msgTo"></div>
+  <label class="lb">内容</label><textarea id="msgText" rows="3" placeholder="写点什么…"></textarea>
+  <div class="err" id="msgErr"></div>
+  <div class="modal-actions"><button class="btn ghost sm" onclick="closeM('msgOverlay')">取消</button><button class="btn sm" onclick="sendMsg()">发送</button></div>
+</div></div>
 
-<!-- 添加 / 编辑设备 -->
-<div class="overlay" id="overlay">
-  <div class="modal">
-    <h3 id="modal-title">添加设备</h3>
-    <label>设备名称 *</label>
-    <input type="text" id="f-name" placeholder="例如 客厅台式机 / 我的手机">
-    <label>设备地址 *</label>
-    <input type="text" id="f-host" placeholder="局域网 IP 或主机名，例如 192.168.3.20">
-    <div class="hint">本机填 127.0.0.1；局域网设备填它的局域网 IP。</div>
-    <label>探活端口</label>
-    <input type="text" id="f-ports" placeholder="6800:对话, 6802:对外API">
-    <div class="hint">多个端口用逗号分隔；可用「端口:用途标签」。留空表示只登记、不探活。</div>
-    <label>备注</label>
-    <input type="text" id="f-note" placeholder="例如 奇点 Windows Agent">
-    <div class="row">
-      <input type="checkbox" id="f-deployed" checked>
-      <label style="margin:0;color:var(--text);font-size:13px;" for="f-deployed">已部署（勾选后参与探活；取消勾选仅作占位登记）</label>
-    </div>
-    <div class="err" id="f-err"></div>
-    <div class="modal-actions">
-      <button class="ghost" onclick="closeModal()">取消</button>
-      <button onclick="submitForm()" id="btn-save">保存</button>
-    </div>
+<div class="overlay" id="provOverlay"><div class="modal">
+  <h3 id="provTitle">新增供应商</h3>
+  <label class="lb">名称 *</label><input type="text" id="p-name" placeholder="例如 火山方舟套餐">
+  <div class="row2">
+    <div><label class="lb">ID（英文，新增时填）</label><input type="text" id="p-id" placeholder="volc-ark"></div>
+    <div><label class="lb">厂商</label><input type="text" id="p-vendor" placeholder="火山引擎"></div>
   </div>
-</div>
+  <div class="row2">
+    <div><label class="lb">取数方式</label><select id="p-mode" onchange="modeFields()"><option value="local">本机累计</option><option value="api">官方用量接口</option><option value="page">内置浏览器读用量页</option></select></div>
+    <div><label class="lb">套餐总量（本机累计时用）</label><input type="number" id="p-budget" placeholder="例如 1000000"></div>
+  </div>
+  <div id="p-local-tip" class="note">填总量后剩余 = 总量 − 本机已用；单位与累计口径一致（token）。</div>
+  <div id="p-api" class="hidden">
+    <label class="lb">余额接口 URL</label><input type="text" id="p-url" placeholder="https://…/usage">
+    <div class="row2"><div><label class="lb">剩余字段路径</label><input type="text" id="p-rpath" value="data.remaining"></div>
+    <div><label class="lb">总量字段路径</label><input type="text" id="p-tpath" value="data.total"></div></div>
+  </div>
+  <div id="p-page" class="hidden">
+    <label class="lb">用量页 URL</label><input type="text" id="p-pageurl" placeholder="https://console.…/usage">
+    <label class="lb">提取规则（正则，第 1 个捕获组是数字）</label><input type="text" id="p-regex" placeholder="剩余[^0-9]{0,12}([0-9,.]+)">
+    <div class="note">第一次用请点「登录用量页」用自己的账号登录，登录态留在盘内。</div>
+  </div>
+  <div class="row2"><div><label class="lb">Base URL（可选）</label><input type="text" id="p-base" placeholder="https://…/v1"></div>
+  <div><label class="lb">模型（可选）</label><input type="text" id="p-model" placeholder="模型 ID"></div></div>
+  <label class="lb">API Key（可留空表示不改动）</label><input type="password" id="p-key" placeholder="只存在本机 providers.json">
+  <div class="inline"><input type="checkbox" id="p-enabled" checked><label for="p-enabled">启用</label></div>
+  <div class="err" id="p-err"></div>
+  <div class="modal-actions"><button class="btn ghost sm" onclick="closeM('provOverlay')">取消</button><button class="btn sm" onclick="saveProv()">保存</button></div>
+</div></div>
 
 <script>
-let devicesData = [];
-let editingId = null;
+var DEVICES=[], NODES=null, USAGE=null, QUOTA=null, editingId=null, editingProv=null, msgTarget=null;
+var TITLES={overview:['总览','引擎、设备与额度的实时状态'],devices:['设备','零安装加入 · 节点在线状态 · 登记设备'],
+            usage:['用量','Token 剩余量与来源可靠性'],quota:['额度雷达','官方免费层 · 每日巡检 · 自动路由']};
+var $=function(id){return document.getElementById(id);};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function fmt(n){n=Number(n||0);if(n>=1e6)return (n/1e6).toFixed(2)+'M';if(n>=1e3)return (n/1e3).toFixed(1)+'K';return String(Math.round(n));}
+function ago(ts){var s=Math.max(0,Math.floor(Date.now()/1000-Number(ts||0)));
+  if(s<60)return s+' 秒前';if(s<3600)return Math.floor(s/60)+' 分钟前';if(s<86400)return Math.floor(s/3600)+' 小时前';return Math.floor(s/86400)+' 天前';}
+async function api(url,opt){var r=await fetch(url,opt);var d=await r.json().catch(function(){return {};});
+  if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));return d;}
+function post(url,body){return api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});}
+function closeM(id){$(id).classList.remove('show');}
+function openM(id){$(id).classList.add('show');}
 
-async function loadDevices() {
-  const res = await fetch('/api/devices');
-  const data = await res.json();
-  devicesData = data.devices || [];
-  renderDevices();
-}
-
-function statusOf(d) {
-  if (!d.deployed) return 'undeployed';
-  return d.online ? 'online' : 'offline';
-}
-
-function renderDevices() {
-  const box = document.getElementById('devices');
-  box.innerHTML = '';
-  let onlineCount = 0, undeployed = 0;
-  devicesData.forEach(d => {
-    const st = statusOf(d);
-    if (st === 'online') onlineCount++;
-    if (st === 'undeployed') undeployed++;
-    const card = document.createElement('div');
-    card.className = 'card';
-    const ports = (d.ports || []).length
-      ? d.ports.map(p => {
-          const cls = !d.deployed ? 'gray' : (p.ok ? 'ok' : 'bad');
-          const txt = !d.deployed ? '未部署' : (p.ok ? '在线' : '离线');
-          return `<div class="port"><span>${p.label || '端口'} : ${p.port}</span><span class="${cls}">${txt}</span></div>`;
-        }).join('')
-      : '<div class="muted" style="margin-top:8px;">未配置探活端口</div>';
-    const badge = st === 'undeployed'
-      ? '<span class="badge">未部署</span>'
-      : (st === 'online' ? '<span class="badge">在线</span>' : '<span class="badge">离线</span>');
-    card.innerHTML = `
-      <h2><span class="dot ${st}"></span> ${d.name} ${badge}</h2>
-      <div class="note">${d.host} — ${d.note || ''}</div>
-      ${ports}
-      <div class="card-actions">
-        <button class="ghost" onclick="openEdit('${d.id}')">编辑</button>
-        <button class="ghost" onclick="toggleDevice('${d.id}')">${d.deployed ? '标为未部署' : '标为已部署'}</button>
-        <button class="danger" onclick="delDevice('${d.id}')">删除</button>
-      </div>
-    `;
-    box.appendChild(card);
-  });
-  document.getElementById('st-online').textContent = onlineCount;
-  document.getElementById('st-total').textContent = devicesData.length;
-  document.getElementById('st-undeployed').textContent = undeployed;
-  document.getElementById('updated').textContent = '更新于 ' + new Date().toLocaleTimeString();
+function go(v){
+  document.querySelectorAll('.view').forEach(function(e){e.classList.toggle('on',e.id==='v-'+v);});
+  document.querySelectorAll('#nav button').forEach(function(b){b.classList.toggle('on',b.dataset.v===v);});
+  $('title').textContent=TITLES[v][0];$('subtitle').textContent=TITLES[v][1];
+  if(v==='usage')loadUsage();if(v==='quota')loadQuota();if(v==='devices'){loadNodes();loadDevices();loadBind();}
 }
 
-function openAdd() {
-  editingId = null;
-  document.getElementById('modal-title').textContent = '添加设备';
-  ['f-name','f-host','f-ports','f-note'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('f-deployed').checked = true;
-  document.getElementById('f-err').textContent = '';
-  document.getElementById('overlay').classList.add('show');
-  document.getElementById('f-name').focus();
+async function loadAll(){
+  await Promise.allSettled([loadDevices(),loadNodes(),loadUsage(),loadQuota(),loadBind(),refreshProxy()]);
+  renderOverview();
+}
+async function loadDevices(){try{var d=await api('/api/devices');DEVICES=d.devices||[];renderDevices();}catch(e){} }
+async function loadNodes(){try{NODES=await api('/api/nodes');renderNodes();}catch(e){} }
+async function loadUsage(force){
+  try{USAGE=await api(force?'/api/usage?refresh=1':'/api/usage');renderUsage();renderChart($('chart'),USAGE.trend);renderChart($('chart2'),USAGE.trend);}
+  catch(e){$('usageCards').innerHTML='<div class="empty">用量读取失败：'+esc(e.message)+'</div>';}
+  renderOverview();
+}
+async function loadQuota(){try{QUOTA=await api('/api/quota');renderQuota();}catch(e){} renderOverview();}
+async function loadBind(){
+  try{var d=await api('/api/bind');$('bindCode').textContent=d.code||'------';
+    var q=$('bindQr');if(d.qr_available){q.src=(d.qr_url||'/api/bind/qr')+'?t='+Date.now();q.style.display='block';}else q.style.display='none';
+    $('bindExpire').textContent=d.expires_in?('约 '+Math.round(d.expires_in/60)+' 分钟后过期'):'';
+  }catch(e){}
+}
+function copyCode(){var t=$('bindCode').textContent;if(navigator.clipboard)navigator.clipboard.writeText(t);}
+async function refreshCode(){try{var d=await api('/api/bind?refresh=1');$('bindCode').textContent=d.code||'------';
+  $('bindQr').src=(d.qr_url||'/api/bind/qr')+'?t='+Date.now();}catch(e){}}
+async function bindByCode(){
+  var code=$('bindInput').value.trim().toUpperCase(),name=$('bindName').value.trim(),err=$('bindErr');
+  err.textContent='';err.className='err';if(!code){err.textContent='请输入配对码';return;}
+  try{var d=await post('/api/bind',{code:code,name:name});
+    err.className='err okmsg';err.textContent='已加入：'+d.device.name;
+    $('bindInput').value='';$('bindName').value='';await loadDevices();
+  }catch(e){err.textContent=e.message;}
+}
+async function refreshProxy(){
+  try{var p=await api('/api/proxy');$('proxy-url').textContent=p.base_url||'';
+    var dot=$('proxy-dot');dot.className='dot '+(p.reachable?'on':'off');
+    $('proxy-status').textContent=p.reachable?('可达 (HTTP '+p.status+')'+(p.admin_configured?' · 已配管理密钥':' · 未配管理密钥')):('不可达'+(p.detail?' ('+p.detail+')':''));
+  }catch(e){}
+}
+async function genKey(){
+  var pre=$('proxy-key-result');pre.classList.remove('hidden');pre.textContent='请求中…';
+  try{var d=await api('/api/proxy/key',{method:'POST'});pre.textContent=JSON.stringify(d,null,2);}catch(e){pre.textContent=e.message;}
 }
 
-function openEdit(id) {
-  const d = devicesData.find(x => x.id === id);
-  if (!d) return;
-  editingId = id;
-  document.getElementById('modal-title').textContent = '编辑设备：' + d.name;
-  document.getElementById('f-name').value = d.name;
-  document.getElementById('f-host').value = d.host;
-  document.getElementById('f-ports').value = (d.ports || []).map(p => `${p.port}:${p.label}`).join(', ');
-  document.getElementById('f-note').value = d.note || '';
-  document.getElementById('f-deployed').checked = !!d.deployed;
-  document.getElementById('f-err').textContent = '';
-  document.getElementById('overlay').classList.add('show');
+function renderOverview(){
+  var online=NODES?NODES.online:0, total=NODES?NODES.total:0;
+  var today=USAGE&&USAGE.today?(Number(USAGE.today.prompt||0)+Number(USAGE.today.completion||0)):0;
+  var main=(USAGE&&USAGE.providers&&USAGE.providers[0])||{};
+  var rem=main.remaining, free=(QUOTA&&QUOTA.providers?QUOTA.providers.filter(function(p){return p.tier==='free'&&p.enabled;}).length:0);
+  var cards=[
+    ['在线节点',online+'<small>/ '+total+'</small>','浏览器页面开着即在线，无需安装'],
+    ['今日 Token',fmt(today),'输入 '+fmt(USAGE&&USAGE.today?USAGE.today.prompt:0)+' · 输出 '+fmt(USAGE&&USAGE.today?USAGE.today.completion:0)],
+    ['主力剩余',rem==null?'<span style="font-size:18px;color:var(--muted)">未设总量</span>':fmt(rem),esc(main.name||'当前套餐')+' · '+sourceLabel(main.trust)],
+    ['免费层已接入',String(free),'额度雷达每天巡检官方入口']
+  ];
+  $('kpis').innerHTML=cards.map(function(c){return '<div class="kpi"><div class="l">'+c[0]+'</div><div class="v">'+c[1]+'</div><div class="d">'+c[2]+'</div></div>';}).join('');
+  renderQuick();if(USAGE){renderChart($('chart'),USAGE.trend);renderChart($('chart2'),USAGE.trend);}
+  var inbox=(NODES&&NODES.inbox)||[];$('feedN').textContent=inbox.length?inbox.length+' 条':'';
+  $('feed').innerHTML=inbox.length?inbox.slice().reverse().map(function(m){
+    return '<div class="it"><div class="w">'+esc(m.from)+'</div>'+esc(m.text)+'<div class="d">'+ago(m.ts)+'</div></div>';}).join('')
+    :'<div class="empty">还没有设备留言。<br><b>其它设备打开 /node 或扫码即可加入</b>，留言会出现在这里。</div>';
+}
+function sourceLabel(t){return t==='official'?'官方接口':t==='page'?'用量页读取':'本机累计';}
+function renderQuick(){
+  if(!USAGE)return;var rows=USAGE.providers||[];
+  $('quickQuota').innerHTML=rows.length?rows.map(function(p){
+    var pct=p.total&&p.remaining!=null?Math.max(0,Math.min(100,p.remaining/p.total*100)):null;
+    return '<div class="qrow"><div class="top"><span class="nm"><span class="dot '+(p.status==='ok'?'on':(p.status==='error'||p.status==='needs_login'?'off':''))+'"></span>'+esc(p.name)+'</span>'+
+      '<span class="num">'+(p.remaining!=null?fmt(p.remaining):'已用 '+fmt(p.used))+'</span></div>'+
+      (pct!=null?'<div class="bar'+(pct<20?' low':'')+'"><i style="width:'+pct.toFixed(1)+'%"></i></div>':'')+
+      '<div class="meta"><span>'+sourceLabel(p.trust)+' · '+esc(p.status)+'</span><span>'+(p.total?fmt(p.total)+' 总量':'未设总量')+'</span></div></div>';
+  }).join(''):'<div class="empty">还没有供应商</div>';
+}
+function renderChart(box,trend){
+  if(!box)return;var t=(trend||[]).slice(-7);
+  while(t.length<7)t.unshift({date:'',total:{prompt:0,completion:0}});
+  var mx=Math.max(1);t.forEach(function(x){mx=Math.max(mx,Number(x.total.prompt||0)+Number(x.total.completion||0));});
+  box.innerHTML=t.map(function(x){var v=Number(x.total.prompt||0)+Number(x.total.completion||0);
+    return '<div class="col"><span class="vl">'+(v?fmt(v):'')+'</span><div class="stick" style="height:'+Math.max(2,v/mx*78)+'%"></div>'+
+      '<span class="lb">'+(x.date?x.date.slice(5):'-')+'</span></div>';}).join('');
+  var sum=t.reduce(function(a,x){return a+Number(x.total.prompt||0)+Number(x.total.completion||0);},0);
+  if($('trendTotal'))$('trendTotal').textContent='合计 '+fmt(sum);
 }
 
-function closeModal() {
-  document.getElementById('overlay').classList.remove('show');
+function renderNodes(){
+  var rows=(NODES&&NODES.nodes)||[];$('nodeN').textContent=rows.length+' 个 · '+((NODES&&NODES.online)||0)+' 在线';
+  $('navDev').textContent=rows.length+DEVICES.length;
+  $('nodes').innerHTML=rows.length?rows.map(function(n){
+    return '<div class="card"><div class="hd"><h3><span class="dot '+(n.online?'on':'off')+'"></span><span class="t">'+esc(n.name)+'</span></h3>'+
+      '<span class="badge '+(n.online?'ok':'')+'">'+(n.online?'在线':'离线')+'</span></div>'+
+      '<div class="sub">免安装节点 · 浏览器页面</div>'+
+      '<div class="kv"><span>地址</span><b>'+esc(n.ip||'-')+'</b></div>'+
+      '<div class="kv"><span>屏幕</span><b>'+esc(n.screen||'-')+'</b></div>'+
+      '<div class="kv"><span>最近心跳</span><b>'+(n.online?'刚刚':ago(n.last_seen))+'</b></div>'+
+      '<div class="kv"><span>节点 ID</span><b style="font-size:10.5px">'+esc(n.id)+'</b></div>'+
+      '<div class="acts"><button class="btn sm" onclick="openMsg(\''+esc(n.id)+'\',\''+esc(n.name)+'\')">发消息</button>'+
+      '<button class="btn ghost sm" onclick="renameNode(\''+esc(n.id)+'\')">改名</button>'+
+      '<button class="btn danger sm" onclick="delNode(\''+esc(n.id)+'\')">移除</button></div></div>';
+  }).join(''):'<div class="empty">还没有节点。<br><b>用手机扫上面的二维码</b>，或打开 /node，页面保持开着即可。</div>';
 }
+function openMsg(id,name){msgTarget=id;$('msgTo').textContent='发给：'+name;$('msgText').value='';$('msgErr').textContent='';openM('msgOverlay');}
+async function sendMsg(){var t=$('msgText').value.trim();if(!t)return;
+  try{await post('/api/nodes/message',{to:msgTarget,text:t});closeM('msgOverlay');}catch(e){$('msgErr').textContent=e.message;}}
+async function renameNode(id){var n=prompt('新的设备名称');if(!n)return;
+  try{await post('/api/nodes/rename',{id:id,name:n});await loadNodes();}catch(e){alert(e.message);}}
+async function delNode(id){if(!confirm('移除这个节点？它重新打开 /node 就能再加回来。'))return;
+  try{await api('/api/nodes/'+encodeURIComponent(id),{method:'DELETE'});await loadNodes();}catch(e){alert(e.message);}}
 
-async function submitForm() {
-  const btn = document.getElementById('btn-save');
-  const err = document.getElementById('f-err');
-  const payload = {
-    name: document.getElementById('f-name').value.trim(),
-    host: document.getElementById('f-host').value.trim(),
-    ports: document.getElementById('f-ports').value.trim(),
-    note: document.getElementById('f-note').value.trim(),
-    deployed: document.getElementById('f-deployed').checked,
-  };
-  err.textContent = '';
-  if (!payload.name || !payload.host) { err.textContent = '名称和地址为必填项'; return; }
-  btn.disabled = true;
-  try {
-    const url = editingId ? `/api/devices/${encodeURIComponent(editingId)}` : '/api/devices';
-    const res = await fetch(url, {
-      method: editingId ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) { err.textContent = data.detail || ('保存失败 HTTP ' + res.status); btn.disabled = false; return; }
-    closeModal();
-    await loadDevices();
-  } catch (e) {
-    err.textContent = '请求异常: ' + e;
-  }
-  btn.disabled = false;
+function renderDevices(){
+  $('devN').textContent=DEVICES.length+' 台';$('navDev').textContent=((NODES&&NODES.total)||0)+DEVICES.length;
+  $('devices').innerHTML=DEVICES.length?DEVICES.map(function(d){
+    var st=!d.deployed?'undeployed':(d.online?'online':'offline');
+    var ports=(d.ports||[]).map(function(p){var cls=!d.deployed?'n':(p.ok?'g':'r');
+      return '<div class="port"><span>'+esc(p.label||'端口')+' : '+p.port+'</span><span class="'+cls+'">'+
+        (!d.deployed?'未部署':(p.ok?'在线':'离线'))+'</span></div>';}).join('')||'<div class="note">未配置探活端口</div>';
+    return '<div class="card"><div class="hd"><h3><span class="dot '+(st==='online'?'on':(st==='offline'?'off':''))+'"></span><span class="t">'+esc(d.name)+'</span></h3>'+
+      '<span class="badge '+(st==='online'?'ok':'')+'">'+(st==='undeployed'?'未部署':(st==='online'?'在线':'离线'))+'</span></div>'+
+      '<div class="sub">'+esc(d.host)+(d.note?' · '+esc(d.note):'')+'</div><div class="ports">'+ports+'</div>'+
+      '<div class="acts"><button class="btn ghost sm" onclick="openEdit(\''+esc(d.id)+'\')">编辑</button>'+
+      '<button class="btn ghost sm" onclick="toggleDevice(\''+esc(d.id)+'\')">'+(d.deployed?'标为未部署':'标为已部署')+'</button>'+
+      '<button class="btn danger sm" onclick="delDevice(\''+esc(d.id)+'\')">删除</button></div></div>';
+  }).join(''):'<div class="empty">还没有登记设备</div>';
 }
+function openAdd(){editingId=null;$('modal-title').textContent='添加设备';
+  ['f-name','f-host','f-ports','f-note'].forEach(function(i){$(i).value='';});
+  $('f-deployed').checked=true;$('f-err').textContent='';openM('overlay');$('f-name').focus();}
+function openEdit(id){var d=DEVICES.find(function(x){return x.id===id;});if(!d)return;editingId=id;
+  $('modal-title').textContent='编辑：'+d.name;$('f-name').value=d.name;$('f-host').value=d.host;
+  $('f-ports').value=(d.ports||[]).map(function(p){return p.port+':'+(p.label||'');}).join(', ');
+  $('f-note').value=d.note||'';$('f-deployed').checked=!!d.deployed;$('f-err').textContent='';openM('overlay');}
+async function submitForm(){
+  var p={name:$('f-name').value.trim(),host:$('f-host').value.trim(),ports:$('f-ports').value.trim(),
+         note:$('f-note').value.trim(),deployed:$('f-deployed').checked};
+  if(!p.name||!p.host){$('f-err').textContent='名称和地址为必填项';return;}
+  $('btn-save').disabled=true;
+  try{await api(editingId?'/api/devices/'+encodeURIComponent(editingId):'/api/devices',
+    {method:editingId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+    closeM('overlay');await loadDevices();}catch(e){$('f-err').textContent=e.message;}$('btn-save').disabled=false;
+}
+async function delDevice(id){if(!confirm('确定删除这台登记设备？会写回 devices.yaml。'))return;
+  try{await api('/api/devices/'+encodeURIComponent(id),{method:'DELETE'});await loadDevices();}catch(e){alert(e.message);}}
+async function toggleDevice(id){try{await post('/api/devices/'+encodeURIComponent(id)+'/toggle');await loadDevices();}catch(e){alert(e.message);}}
 
-async function delDevice(id) {
-  const d = devicesData.find(x => x.id === id);
-  if (!confirm(`确定删除设备「${d ? d.name : id}」？该操作会写入 devices.yaml 配置文件。`)) return;
-  const res = await fetch(`/api/devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  if (!res.ok) { const t = await res.json().catch(()=>({})); alert(t.detail || '删除失败'); return; }
-  await loadDevices();
+function renderUsage(){
+  var rows=(USAGE&&USAGE.providers)||[];
+  $('usageCards').innerHTML=rows.length?rows.map(function(p){
+    var pct=(p.total&&p.remaining!=null)?Math.max(0,Math.min(100,p.remaining/p.total*100)):null;
+    var trust=p.trust==='official'?'<span class="badge ok">官方接口</span>':(p.trust==='page'?'<span class="badge warn">用量页读取</span>':'<span class="badge">本机累计</span>');
+    var mode=p.mode||'local';
+    return '<div class="card"><div class="hd"><h3><span class="dot '+(p.status==='ok'?'on':(p.status==='error'||p.status==='needs_login'?'off':''))+'"></span><span class="t">'+esc(p.name)+'</span></h3>'+
+      (p.tier==='free'?'<span class="badge acc">免费层</span>':'<span class="badge">'+esc(p.vendor||'套餐')+'</span>')+'</div>'+
+      '<div class="sub">'+trust+' · '+esc(p.status)+'</div>'+
+      '<div class="big-num">'+(p.remaining!=null?fmt(p.remaining):'—')+'<small>'+(p.remaining!=null?esc(p.unit||'token')+' 剩余':'未取到剩余额度')+'</small></div>'+
+      '<div class="bar'+(pct!=null&&pct<20?' low':'')+'"><i style="width:'+(pct==null?0:pct.toFixed(1))+'%"></i></div>'+
+      '<div class="kv"><span>本机已用</span><b>'+fmt(p.used)+' token</b></div>'+
+      '<div class="kv"><span>套餐总量</span><b>'+(p.total?fmt(p.total):'未填')+'</b></div>'+
+      '<div class="sub" style="margin:10px 0 0">'+esc(p.detail||p.note||'')+'</div>'+
+      '<div class="acts"><button class="btn ghost sm" onclick="loadUsage(true)">刷新</button>'+
+      (mode==='page'?'<button class="btn ghost sm" onclick="loginPage(\''+esc(p.id)+'\')">登录用量页</button>':'')+
+      '<button class="btn ghost sm" onclick="openProv(\''+esc(p.id)+'\')">编辑</button>'+
+      (p.id!=='main'?'<button class="btn danger sm" onclick="delProv(\''+esc(p.id)+'\')">删除</button>':'')+'</div></div>';
+  }).join(''):'<div class="empty">还没有供应商，点右上「新增供应商」。</div>';
 }
+async function loginPage(id){try{var d=await post('/api/usage/login',{id:id});alert(d.detail||'');}catch(e){alert(e.message);}}
+function modeFields(){var m=$('p-mode').value;$('p-api').classList.toggle('hidden',m!=='api');
+  $('p-page').classList.toggle('hidden',m!=='page');$('p-local-tip').classList.toggle('hidden',m!=='local');}
+function openProv(id){
+  editingProv=id||null;var p=(id?((USAGE&&USAGE.providers)||[]).find(function(x){return x.id===id;}):null)||{};
+  $('provTitle').textContent=id?'编辑：'+(p.name||id):'新增供应商';
+  $('p-name').value=p.name||'';$('p-id').value=p.id||'';$('p-id').disabled=!!id;
+  $('p-vendor').value=p.vendor||'';$('p-mode').value=p.mode||'local';$('p-budget').value=p.budget||'';
+  $('p-url').value=(p.query&&p.query.url)||'';$('p-rpath').value=(p.query&&p.query.remaining_path)||'data.remaining';
+  $('p-tpath').value=(p.query&&p.query.total_path)||'data.total';
+  $('p-pageurl').value=p.page_url||'';$('p-regex').value=p.remaining_regex||'';
+  $('p-base').value=p.endpoint||'';$('p-model').value=p.model||'';$('p-key').value='';
+  $('p-enabled').checked=p.enabled!==false;$('p-err').textContent='';modeFields();openM('provOverlay');
+}
+async function saveProv(){
+  var id=$('p-id').value.trim(),name=$('p-name').value.trim();
+  if(!name){$('p-err').textContent='名称必填';return;}
+  if(!id){$('p-err').textContent='ID 必填（英文、数字、短横线）';return;}
+  if(!/^[A-Za-z0-9_-]+$/.test(id)){$('p-err').textContent='ID 只能含英文、数字、_ 和 -';return;}
+  var m=$('p-mode').value;
+  var row={id:id,name:name,vendor:$('p-vendor').value.trim(),mode:m,enabled:$('p-enabled').checked,
+    budget:$('p-budget').value?Number($('p-budget').value):null,
+    base_url:$('p-base').value.trim(),model:$('p-model').value.trim(),
+    page_url:$('p-pageurl').value.trim(),remaining_regex:$('p-regex').value.trim(),
+    query:{url:$('p-url').value.trim(),method:'GET',headers:{'Authorization':'Bearer ${KEY}'},
+           remaining_path:$('p-rpath').value.trim(),total_path:$('p-tpath').value.trim(),timeout:8}};
+  if($('p-key').value)row.api_key=$('p-key').value;
+  if(!editingProv){row.source='inline';row.tier='paid';}
+  try{await post('/api/usage/providers',{provider:row});closeM('provOverlay');await loadUsage(true);}
+  catch(e){$('p-err').textContent=e.message;}
+}
+async function delProv(id){if(!confirm('删除这条供应商配置？'))return;
+  try{await api('/api/usage/providers/'+encodeURIComponent(id),{method:'DELETE'});await loadUsage(true);}catch(e){alert(e.message);}}
 
-async function toggleDevice(id) {
-  const res = await fetch(`/api/devices/${encodeURIComponent(id)}/toggle`, { method: 'POST' });
-  if (!res.ok) { const t = await res.json().catch(()=>({})); alert(t.detail || '操作失败'); return; }
-  await loadDevices();
+function renderQuota(){
+  if(!QUOTA)return;
+  if(QUOTA.catalog&&QUOTA.catalog.policy)$('policy').innerHTML='<b>边界说明</b> · '+esc(QUOTA.catalog.policy);
+  $('autoRoute').checked=!!(QUOTA.routing&&QUOTA.routing.auto);
+  $('scanTime').textContent=QUOTA.scanned_at?('上次 '+ago(QUOTA.scanned_at)):'尚未巡检';
+  $('scanInfo').textContent=QUOTA.scanned_at?('上次巡检 '+QUOTA.date+' · '+QUOTA.available+'/'+(QUOTA.catalog.items||[]).length+' 个官方入口可达'):'点「立即巡检」跑一次';
+  var items=(QUOTA.catalog&&QUOTA.catalog.items)||[];
+  $('tierN').textContent=items.length+' 家';
+  $('tiers').innerHTML=items.map(function(t){
+    var st=(QUOTA.items||[]).find(function(x){return x.id===t.id;})||{};
+    var attached=(QUOTA.providers||[]).some(function(p){return p.id==='free-'+t.id;});
+    return '<div class="card tier"><div class="hd"><h3><span class="dot '+(st.reachable?'on':'off')+'"></span><span class="t">'+esc(t.name)+'</span></h3>'+
+      (attached?'<span class="badge ok">已接入</span>':'')+'</div>'+
+      '<div class="vendor">'+esc(t.vendor)+'</div><div class="free">'+esc(t.free_form)+'</div>'+
+      '<div class="kv"><span>官方入口</span><b>'+(st.reachable?'可达':'未连通')+'</b></div>'+
+      '<div class="kv"><span>额度</span><b>以官网为准</b></div>'+
+      '<div class="acts"><a class="btn ghost sm" href="'+esc(t.signup_url)+'" target="_blank" rel="noopener">去官网领取</a>'+
+      '<button class="btn sm" onclick="toggleAttach(\''+esc(t.id)+'\')">'+(attached?'重新接入':'接入我领到的 Key')+'</button></div>'+
+      '<div class="attach" id="att-'+esc(t.id)+'">'+
+      '<input type="password" id="k-'+esc(t.id)+'" placeholder="粘贴你自己在官网领到的 API Key">'+
+      '<input type="text" id="b-'+esc(t.id)+'" placeholder="Base URL（可留空用推荐值）" value="'+esc(t.base_url_hint||'')+'">'+
+      '<input type="text" id="m-'+esc(t.id)+'" placeholder="模型 ID（可留空用推荐值）" value="'+esc(t.model_hint||'')+'">'+
+      '<button class="btn sm" onclick="attach(\''+esc(t.id)+'\')">校验并写入本机配置</button>'+
+      '<div class="err" id="e-'+esc(t.id)+'"></div></div></div>';
+  }).join('')||'<div class="empty">目录为空</div>';
+  var free=(QUOTA.providers||[]).filter(function(p){return p.tier==='free';});
+  $('attachedN').textContent=free.length+' 条';
+  $('attached').innerHTML=free.length?free.map(function(p){
+    return '<div class="card"><div class="hd"><h3><span class="dot on"></span><span class="t">'+esc(p.name)+'</span></h3><span class="badge ok">免费层</span></div>'+
+      '<div class="sub">'+esc(p.vendor||'')+' · Key '+esc(p.masked_key||'')+'</div>'+
+      '<div class="kv"><span>端点</span><b style="font-size:10.5px">'+esc(p.endpoint||'-')+'</b></div>'+
+      '<div class="kv"><span>模型</span><b style="font-size:10.5px">'+esc(p.model||'-')+'</b></div>'+
+      '<div class="acts"><button class="btn danger sm" onclick="delProv(\''+esc(p.id)+'\')">移除</button></div></div>';
+  }).join(''):'<div class="empty">还没接入免费层。<br><b>先去官网用自己的账号领取，再把 Key 粘回来</b>，简单任务就能自动走它。</div>';
 }
+function toggleAttach(id){var e=$('att-'+id);if(e)e.classList.toggle('show');}
+async function attach(id){
+  var e=$('e-'+id);e.textContent='';
+  try{var d=await post('/api/quota/attach',{tier_id:id,api_key:$('k-'+id).value.trim(),
+    base_url:$('b-'+id).value.trim(),model:$('m-'+id).value.trim()});
+    if(!d.ok){e.textContent=d.detail;return;}
+    $('k-'+id).value='';toggleAttach(id);await loadQuota();await loadUsage(true);
+  }catch(err){e.textContent=err.message;}
+}
+async function setRoute(on){try{await post('/api/quota/route',{auto:on});QUOTA.routing=QUOTA.routing||{};QUOTA.routing.auto=on;}catch(e){alert(e.message);}}
+async function scan(){var b=$('scanBtn');b.disabled=true;b.textContent='巡检中…';
+  try{var r=await post('/api/quota/scan');await loadQuota();$('scanInfo').textContent='本次 '+r.available+'/'+(r.items||[]).length+' 个官方入口可达';}
+  catch(e){$('scanInfo').textContent=e.message;}b.disabled=false;b.textContent='立即巡检';}
 
-async function refreshProxy() {
-  const res = await fetch('/api/proxy');
-  const p = await res.json();
-  document.getElementById('proxy-url').textContent = p.base_url;
-  const dot = document.getElementById('proxy-dot');
-  const st = document.getElementById('proxy-status');
-  dot.className = 'dot ' + (p.reachable ? 'online' : 'offline');
-  st.textContent = p.reachable
-    ? `可达 (HTTP ${p.status})${p.admin_configured ? ' · 已配置管理密钥' : ' · 未配置管理密钥'}`
-    : '不可达' + (p.detail ? ` (${p.detail})` : '');
-  document.getElementById('st-proxy').textContent = p.reachable ? '在线' : '离线';
-  return p;
-}
-
-async function genKey() {
-  const btn = document.getElementById('btn-key');
-  const pre = document.getElementById('proxy-key-result');
-  btn.disabled = true;
-  pre.style.display = 'block';
-  pre.textContent = '请求中...';
-  const res = await fetch('/api/proxy/key', { method: 'POST' });
-  const data = await res.json();
-  pre.textContent = JSON.stringify(data, null, 2);
-  btn.disabled = false;
-}
-
-document.getElementById('overlay').addEventListener('click', e => {
-  if (e.target.id === 'overlay') closeModal();
-});
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-/* ---------- 设备绑定（配对码 / 二维码） ---------- */
-async function loadBind() {
-  try {
-    const res = await fetch('/api/bind');
-    const d = await res.json();
-    document.getElementById('bindCode').textContent = d.code || '------';
-    const qr = document.getElementById('bindQr');
-    if (d.qr_available && d.qr_url) { qr.src = d.qr_url + '?t=' + Date.now(); qr.style.display = 'block'; }
-    else { qr.style.display = 'none'; }
-    if (d.expires_in) document.getElementById('bindExpire').textContent =
-      '配对码有效时长约 ' + Math.round(d.expires_in / 60) + ' 分钟（过期自动刷新）';
-  } catch (e) {}
-}
-function copyCode() {
-  const t = document.getElementById('bindCode').textContent;
-  if (navigator.clipboard) navigator.clipboard.writeText(t);
-}
-async function refreshCode() {
-  try {
-    const res = await fetch('/api/bind?refresh=1');
-    const d = await res.json();
-    document.getElementById('bindCode').textContent = d.code || '------';
-    const qr = document.getElementById('bindQr');
-    if (d.qr_available && d.qr_url) qr.src = d.qr_url + '?t=' + Date.now();
-  } catch (e) {}
-}
-async function bindByCode() {
-  const code = document.getElementById('bindInput').value.trim().toUpperCase();
-  const name = document.getElementById('bindName').value.trim();
-  const err = document.getElementById('bindErr');
-  err.textContent = '';
-  err.style.color = '';
-  if (!code) { err.textContent = '请输入配对码'; return; }
-  try {
-    const res = await fetch('/api/bind', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, name }),
-    });
-    const d = await res.json();
-    if (!res.ok) { err.textContent = d.detail || '绑定失败'; return; }
-    err.style.color = 'var(--ok)';
-    err.textContent = '✓ 已绑定：' + d.device.name;
-    document.getElementById('bindInput').value = '';
-    document.getElementById('bindName').value = '';
-    await loadDevices();
-  } catch (e) { err.textContent = '请求异常: ' + e; }
-}
-
-loadDevices();
-refreshProxy();
-loadBind();
+document.querySelectorAll('.overlay').forEach(function(o){o.addEventListener('click',function(e){if(e.target===o)closeM(o.id);});});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')document.querySelectorAll('.overlay.show').forEach(function(o){closeM(o.id);});});
+setInterval(function(){$('clock').textContent=new Date().toLocaleTimeString();},1000);
+$('clock').textContent=new Date().toLocaleTimeString();
+setInterval(function(){loadNodes();},12000);
+setInterval(function(){if(document.querySelector('#v-overview.on'))loadUsage();},60000);
+loadAll();
 </script>
 </body>
 </html>

@@ -1,0 +1,53 @@
+{
+  "routing": {
+    "auto": false,
+    "simple_max_chars": 160,
+    "complex_keywords": ["代码", "重构", "分析", "长文", "写一篇", "翻译全文", "debug"],
+    "note": "自动路由只影响无工具调用的短问答；Agent 多轮/工具任务始终走主力套餐。"
+  },
+  "providers": [
+    {
+      "id": "main",
+      "name": "当前主力套餐",
+      "vendor": "配置.qdai 指向的网关",
+      "source": "qdai",
+      "enabled": true,
+      "tier": "paid",
+      "mode": "local",
+      "budget": null,
+      "note": "端点/Key/模型直接读 配置.qdai；本机实时累计每次调用的 token。填上套餐总量即可估算剩余。"
+    },
+    {
+      "id": "volc-template",
+      "name": "字节 · 火山方舟（模板）",
+      "vendor": "火山引擎",
+      "source": "inline",
+      "enabled": false,
+      "tier": "paid",
+      "mode": "page",
+      "budget": null,
+      "page_url": "https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement",
+      "remaining_regex": "剩余[^0-9]{0,12}([0-9,.]+)",
+      "note": "示例模板：启用前请先在「登录用量页」用自己的账号登录，并按实际页面调整提取规则。页面改版会失效。"
+    },
+    {
+      "id": "api-template",
+      "name": "官方用量接口（模板）",
+      "vendor": "自定义",
+      "source": "inline",
+      "enabled": false,
+      "tier": "paid",
+      "mode": "api",
+      "budget": null,
+      "query": {
+        "url": "",
+        "method": "GET",
+        "headers": { "Authorization": "Bearer ${KEY}" },
+        "remaining_path": "data.remaining",
+        "total_path": "data.total",
+        "timeout": 8
+      },
+      "note": "示例模板：填厂商官方余额接口地址与 JSON 字段路径；${KEY} 会自动替换为本条目的 Key。"
+    }
+  ]
+}

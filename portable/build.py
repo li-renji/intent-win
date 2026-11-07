@@ -42,7 +42,13 @@ BUILD_SKIP = {"portable/build.py", "portable/verify.py",
               "portable/make_icon.py", "portable/factory.py",
               "portable/install.py", "portable/push.py", "portable/publish.py",
               "portable/scrub.py", "portable/_probe_lnk.py",
-              "portable/_probe_com.py"}
+              "portable/_probe_com.py",
+              # 工作台：验收脚本 + 运行时数据（可能含用户 Key / 设备 / 登录态）
+              "workbench/verify.py", "workbench/_probe_chrome.py",
+              "workbench/nodes.json", "workbench/usage.json",
+              "workbench/quota_report.json", "workbench/providers.json"}
+# 按完整相对路径排除的目录（不能按名字：runtime 里也有叫 data 的目录）
+SKIP_DIR_REL = {"workbench/data"}
 PORTABLE_PORTS = {
     "port_6800": "16800", "port_6801": "16801", "http_port": "16802",
     "mybrowser_cdp_port": "19700", "local_engine_port": "18099",
@@ -206,8 +212,11 @@ GUIDE = """INTENT 便携版 · 使用说明
 """
 
 
-def _skip_dir(name):
-    return name in SKIP_DIRS
+def _skip_dir(name, rel_path=""):
+    if name in SKIP_DIRS:
+        return True
+    p = os.path.normpath(rel_path).replace("\\", "/") if rel_path else name
+    return any(p == x or p.startswith(x + "/") for x in SKIP_DIR_REL)
 
 
 def _skip_file(name, rel_path=""):
@@ -219,8 +228,10 @@ def _skip_file(name, rel_path=""):
 def _copy_tree(src, dst, hardlink=False, top=""):
     n = 0
     for dirpath, dirnames, filenames in os.walk(src):
-        dirnames[:] = [d for d in dirnames if not _skip_dir(d)]
         rel = os.path.relpath(dirpath, src)
+        here = top if rel == "." else os.path.normpath(os.path.join(top, rel))
+        dirnames[:] = [d for d in dirnames
+                       if not _skip_dir(d, os.path.join(here, d))]
         out = dst if rel == "." else os.path.join(dst, rel)
         os.makedirs(out, exist_ok=True)
         for name in filenames:

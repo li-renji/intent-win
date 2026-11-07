@@ -17,6 +17,14 @@ try:
 except ImportError:  # 允许把 agent/ 直接加进 sys.path 做单文件调试
     import safety
 
+try:
+    from . import usage as _usage      # 用量累计 / 免费额度自动路由（可选，失败不影响聊天）
+except ImportError:
+    try:
+        import usage as _usage
+    except Exception:
+        _usage = None
+
 TIMEOUT = 40  # 对齐 ai_service 40s deadline
 
 
@@ -112,6 +120,13 @@ def _explain_net_error(e):
 
 def chat(endpoint, model, api_key, messages, stream=False):
     """返回 (ok, content_or_error)；stream=True 时返回生成器逐块产出文本。"""
+    _pid = "main"
+    if _usage is not None:
+        try:
+            endpoint, model, api_key, _pid = _usage.route(
+                endpoint, model, api_key, messages, tools=None)
+        except Exception:
+            pass
     payload = _build_payload(model, messages, stream)
     try:
         resp = _post(_endpoint_url(endpoint), payload, api_key)
@@ -129,6 +144,11 @@ def chat(endpoint, model, api_key, messages, stream=False):
         try:
             data = json.loads(resp.read().decode("utf-8"))
             content = data["choices"][0]["message"]["content"]
+            if _usage is not None:
+                try:
+                    _usage.record(data.get("usage"), provider_id=_pid, model=model)
+                except Exception:
+                    pass
             return True, content
         except Exception as e:
             return False, "响应解析失败: %s" % e
@@ -145,10 +165,23 @@ def chat(endpoint, model, api_key, messages, stream=False):
                 if body == "[DONE]":
                     break
                 try:
-                    delta = json.loads(body)["choices"][0].get("delta", {})
+                    frame = json.loads(body)
+                    delta = frame["choices"][0].get("delta", {})
                     if delta.get("content"):
                         yield delta["content"]
+                    if frame.get("usage") and _usage is not None:
+                        try:
+                            _usage.record(frame["usage"], provider_id=_pid, model=model)
+                        except Exception:
+                            pass
                 except Exception:
+                    # 有些网关最后一帧只有 usage，没有 choices
+                    try:
+                        u = json.loads(body).get("usage")
+                        if u and _usage is not None:
+                            _usage.record(u, provider_id=_pid, model=model)
+                    except Exception:
+                        pass
                     continue
         finally:
             resp.close()
@@ -202,6 +235,13 @@ def chat_stream_events(base, model, api_key, messages, tools=None, timeout=None,
         {"kind": "net",  "msg": "..."}                网络/超时等瞬时故障
     调用方据此判断「是否该降级」——超时绝不能当成「不支持 tools」。
     """
+    _pid = "main"
+    if _usage is not None:
+        try:
+            base, model, api_key, _pid = _usage.route(
+                base, model, api_key, messages, tools=tools)
+        except Exception:
+            pass
     payload = _build_payload(model, messages, True, tools)
     try:
         resp = _post(_endpoint_url(base), payload, api_key, timeout)
@@ -263,6 +303,11 @@ def chat_stream_events(base, model, api_key, messages, tools=None, timeout=None,
         finally:
             try:
                 resp.close()
+            except Exception:
+                pass
+        if usage and _usage is not None:
+            try:
+                _usage.record(usage, provider_id=_pid, model=model)
             except Exception:
                 pass
         calls = acc.result()

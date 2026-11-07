@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+<title>INTENT · 设备节点</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#141924; --elev:#1b2130; --line:rgba(255,255,255,.075);
+    --line2:rgba(255,255,255,.14); --text:#e9edf5; --muted:#94a1b8; --dim:#62708a;
+    --a:#7c83ff; --b:#36c6e0; --ok:#34d399; --bad:#f87171; --warn:#fbbf24;
+    --grad:linear-gradient(135deg,#7c83ff,#36c6e0);
+    --r:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:radial-gradient(900px 520px at 80% -10%,rgba(124,131,255,.13),transparent 60%),
+               radial-gradient(700px 460px at -10% 110%,rgba(54,198,224,.09),transparent 60%),var(--bg);
+    color:var(--text);min-height:100vh;font-family:"Inter","PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:22px 16px 40px;
+  }
+  .wrap{max-width:680px;margin:0 auto}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:26px}
+  .brand{display:flex;align-items:center;gap:11px;font-size:15px;font-weight:700;letter-spacing:.3px}
+  .mark{width:30px;height:30px;border-radius:9px;background:var(--grad);display:grid;place-items:center;color:#0b0e14;font-weight:900;font-size:15px;box-shadow:0 6px 20px rgba(124,131,255,.35)}
+  .pill{display:inline-flex;align-items:center;gap:7px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.28);color:var(--ok);
+        border-radius:99px;padding:6px 13px;font-size:12px;font-weight:600;white-space:nowrap}
+  .pill.off{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.28);color:var(--bad)}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 9px currentColor}
+  .hero{background:linear-gradient(160deg,rgba(124,131,255,.1),rgba(20,25,36,.9) 55%),var(--panel);
+        border:1px solid var(--line2);border-radius:22px;padding:26px 24px;box-shadow:0 20px 50px rgba(0,0,0,.35);margin-bottom:18px}
+  .hero .k{font-size:11.5px;color:var(--muted);letter-spacing:1.4px;text-transform:uppercase;margin-bottom:10px}
+  .name{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .name input{background:transparent;border:0;border-bottom:1px dashed var(--line2);color:var(--text);font-size:25px;font-weight:750;
+              letter-spacing:.3px;outline:0;padding:2px 0 5px;width:min(340px,72vw);font-family:inherit}
+  .name input:focus{border-color:var(--a)}
+  .edit{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--muted);border-radius:8px;
+        padding:6px 10px;font-size:12px;cursor:pointer}
+  .edit:hover{color:var(--text)}
+  .hero p{color:var(--muted);font-size:13px;line-height:1.7;margin-top:14px}
+  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:20px}
+  .cell{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+  .cell .l{font-size:11px;color:var(--dim);margin-bottom:5px}
+  .cell .v{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;word-break:break-all}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:16px}
+  .card h2{font-size:14px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .card .sub{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6}
+  .msgs{max-height:280px;overflow:auto;display:flex;flex-direction:column;gap:9px}
+  .msg{background:var(--elev);border:1px solid var(--line);border-radius:12px;padding:11px 13px;font-size:13px;line-height:1.6}
+  .msg .who{font-size:11px;color:var(--b);font-weight:700;margin-bottom:4px}
+  .msg .when{font-size:10.5px;color:var(--dim);margin-top:6px}
+  .empty{color:var(--dim);font-size:12.5px;text-align:center;padding:24px 0}
+  .row{display:flex;gap:9px;margin-top:14px}
+  input.text{flex:1;min-width:0;background:#0b0e14;border:1px solid var(--line2);color:var(--text);border-radius:10px;
+             padding:11px 13px;font-size:13.5px;outline:0;font-family:inherit}
+  input.text:focus{border-color:var(--a);box-shadow:0 0 0 3px rgba(124,131,255,.13)}
+  button.go{background:var(--grad);color:#0b0e14;border:0;border-radius:10px;padding:0 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+  button.go:disabled{opacity:.5;cursor:not-allowed}
+  .links{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .links a{color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--line);border-radius:9px;padding:8px 13px}
+  .links a:hover{color:var(--text);border-color:var(--line2)}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#1b2130;border:1px solid var(--line2);
+         color:var(--text);border-radius:10px;padding:10px 18px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:9}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media(max-width:520px){body{padding:18px 13px 34px}.hero{padding:22px 18px}.name input{font-size:21px;width:66vw}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><span class="mark">I</span> INTENT · 设备节点</div>
+    <span class="pill" id="pill"><span class="dot"></span><span id="pillText">连接中</span></span>
+  </div>
+
+  <div class="hero">
+    <div class="k">THIS DEVICE</div>
+    <div class="name">
+      <input id="name" value="我的设备" spellcheck="false">
+      <button class="edit" onclick="rename()">改名</button>
+    </div>
+    <p>这台设备<b>没有安装任何东西</b>。这个页面就是节点本体：保持它开着，工作台就能看到你在线、给你发消息。<br>关掉页面即离线，不会在设备上留下软件或注册表项。</p>
+    <div class="meta">
+      <div class="cell"><div class="l">节点 ID</div><div class="v" id="nid">-</div></div>
+      <div class="cell"><div class="l">本机地址</div><div class="v" id="ip">-</div></div>
+      <div class="cell"><div class="l">屏幕</div><div class="v" id="screen">-</div></div>
+      <div class="cell"><div class="l">最近心跳</div><div class="v" id="hb">-</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>工作台消息</h2>
+    <div class="sub">工作台发来的消息会实时出现在这里。</div>
+    <div class="msgs" id="msgs"><div class="empty">还没有消息</div></div>
+  </div>
+
+  <div class="card">
+    <h2>给工作台留言</h2>
+    <div class="sub">写点什么，工作台的「设备」页就能看到。</div>
+    <div class="row">
+      <input class="text" id="note" placeholder="例如：这台是客厅平板" maxlength="500">
+      <button class="go" id="sendBtn" onclick="sendNote()">发送</button>
+    </div>
+  </div>
+
+  <div class="links">
+    <a href="/">打开工作台主页 →</a>
+    <a href="/bind">添加另一台设备</a>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+var qs = new URLSearchParams(location.search);
+var KEY = 'intent-node-id';
+var id = qs.get('device') || localStorage.getItem(KEY);
+if(!id){ id = 'node-' + Math.random().toString(36).slice(2,10); }
+localStorage.setItem(KEY, id);
+var defaultName = qs.get('name') || ('设备-' + id.slice(-4).toUpperCase());
+var nameEl = document.getElementById('name');
+nameEl.value = localStorage.getItem('intent-node-name') || defaultName;
+document.getElementById('nid').textContent = id;
+document.getElementById('screen').textContent = screen.width + '×' + screen.height;
+var lastOk = 0, shown = {};
+
+function toast(t){ var e=document.getElementById('toast'); e.textContent=t; e.classList.add('show');
+  setTimeout(function(){e.classList.remove('show');},2200); }
+function setOnline(ok){
+  var p=document.getElementById('pill');
+  p.className = 'pill' + (ok?'':' off');
+  document.getElementById('pillText').textContent = ok?'已连接工作台':'连接断开 · 重试中';
+}
+function hb(){
+  var payload={id:id,name:nameEl.value.trim()||defaultName,ua:navigator.userAgent,
+               screen:screen.width+'x'+screen.height,kind:'browser'};
+  fetch('/api/nodes/heartbeat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){ lastOk=Date.now(); setOnline(true);
+        document.getElementById('hb').textContent=new Date().toLocaleTimeString();
+        if(d.messages) d.messages.forEach(addMsg); }
+      else setOnline(false);
+    }).catch(function(){setOnline(false);});
+}
+function key(m){ return m.ts+'|'+m.from+'|'+m.text; }
+function addMsg(m){
+  var k=key(m); if(shown[k]) return; shown[k]=1;
+  var box=document.getElementById('msgs');
+  if(box.querySelector('.empty')) box.innerHTML='';
+  var d=document.createElement('div'); d.className='msg';
+  var w=document.createElement('div'); w.className='who'; w.textContent=m.from||'工作台';
+  var t=document.createElement('div'); t.textContent=m.text;
+  var s=document.createElement('div'); s.className='when'; s.textContent=new Date(m.ts*1000).toLocaleString();
+  d.appendChild(w); d.appendChild(t); d.appendChild(s); box.insertBefore(d,box.firstChild);
+}
+function pull(){
+  fetch('/api/nodes/messages?id='+encodeURIComponent(id)).then(function(r){return r.json();})
+    .then(function(d){ (d.messages||[]).forEach(addMsg); }).catch(function(){});
+}
+function rename(){
+  var n=nameEl.value.trim(); if(!n){toast('名称不能为空');return;}
+  localStorage.setItem('intent-node-name',n);
+  fetch('/api/nodes/rename',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:id,name:n})}).then(function(){hb();toast('已改名');});
+}
+function sendNote(){
+  var i=document.getElementById('note'), t=i.value.trim(); if(!t)return;
+  var b=document.getElementById('sendBtn'); b.disabled=true;
+  fetch('/api/nodes/note',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:id,text:t})}).then(function(r){return r.json();})
+    .then(function(d){ if(d.ok){i.value='';toast('已送到工作台');} else toast(d.detail||'发送失败'); })
+    .catch(function(){toast('发送失败');}).finally(function(){b.disabled=false;});
+}
+nameEl.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();rename();}});
+document.getElementById('note').addEventListener('keydown',function(e){if(e.key==='Enter')sendNote();});
+hb(); pull();
+setInterval(hb,8000); setInterval(pull,5000);
+setInterval(function(){ if(Date.now()-lastOk>35000) setOnline(false); },5000);
+</script>
+</body>
+</html>

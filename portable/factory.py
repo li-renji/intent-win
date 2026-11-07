@@ -63,7 +63,16 @@ EXCLUDE_REL = {os.path.join("tools", "api_push.py"),
                os.path.join("portable", "verify_desktop.py"),
                os.path.join("portable", "verify_factory.py"),
                os.path.join("portable", "make_icon.py"),
-               os.path.join("portable", "scrub.py")}
+               os.path.join("portable", "scrub.py"),
+               # 工作台：验收脚本 + 运行时数据（含用户 Key / 节点 / 登录态，出厂包必须干净）
+               os.path.join("workbench", "verify.py"),
+               os.path.join("workbench", "_probe_chrome.py"),
+               os.path.join("workbench", "nodes.json"),
+               os.path.join("workbench", "usage.json"),
+               os.path.join("workbench", "quota_report.json"),
+               os.path.join("workbench", "providers.json")}
+# 按完整相对路径排除的目录（不能按名字：runtime 里也有叫 data 的目录）
+EXCLUDE_DIR_REL = {os.path.join("workbench", "data")}
 EXCLUDE_EXT = {".pyc", ".pyo", ".log", ".tmp", ".bak", ".new", ".lnk"}
 # 反复重建时，早先版本可能留下的开发文件；每次构建前精确清掉（只删这些）
 MUST_NOT_EXIST = [
@@ -74,6 +83,9 @@ MUST_NOT_EXIST = [
     "portable/verify_desktop.py", "portable/verify_factory.py",
     "portable/make_icon.py", "portable/scrub.py",
     "portable/_probe_lnk.py", "portable/_probe_com.py",
+    "workbench/verify.py", "workbench/_probe_chrome.py",
+    "workbench/nodes.json", "workbench/usage.json",
+    "workbench/quota_report.json", "workbench/providers.json",
 ]
 # 出厂默认值：修掉之前实测出的浏览器 UI 死锁 / 桌宠自启，并保持安全闸门开启
 FACTORY_DEFAULTS = {
@@ -259,8 +271,13 @@ def _copy_tree(src, dst, hardlink=False, top=""):
     """top: 该目录在 payload 里的名字，用于按完整相对路径排除开发脚本。"""
     n = 0
     for dirpath, dirnames, filenames in os.walk(src):
-        dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
         rel = os.path.relpath(dirpath, src)
+        here = top if rel == "." else os.path.normpath(os.path.join(top, rel))
+        dirnames[:] = [d for d in dirnames
+                       if d not in EXCLUDE_DIRS
+                       and not any(os.path.normpath(os.path.join(here, d)) == x
+                                   or os.path.normpath(os.path.join(here, d)).startswith(x + os.sep)
+                                   for x in EXCLUDE_DIR_REL)]
         out = dst if rel == "." else os.path.join(dst, rel)
         os.makedirs(out, exist_ok=True)
         for name in filenames:

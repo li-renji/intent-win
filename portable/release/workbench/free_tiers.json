@@ -1,0 +1,113 @@
+{
+  "policy": "只收录厂商官方公开的免费层 / 新客试用额度，一律用你自己的账号领取。不搜集、不存储、不试用任何来路不明或他人泄露的 API Key。各家额度与有效期会变，一律以官网为准；下面不写死数字，避免过期误导。",
+  "items": [
+    {
+      "id": "volc-ark",
+      "name": "火山方舟 · 新客额度 / 部分模型免费",
+      "vendor": "字节跳动 · 火山引擎",
+      "free_form": "新用户赠送 token 额度，部分模型有免费调用额度",
+      "signup_url": "https://console.volcengine.com/ark",
+      "docs_url": "https://www.volcengine.com/docs/82379",
+      "check_url": "https://www.volcengine.com/product/doubao",
+      "base_url_hint": "https://ark.cn-beijing.volces.com/api/v3",
+      "model_hint": "以控制台开通的模型 ID 为准",
+      "needs_card": false
+    },
+    {
+      "id": "aliyun-bailian",
+      "name": "阿里云百炼 · 新客免费额度",
+      "vendor": "阿里云",
+      "free_form": "开通后各模型有一次性免费 token 额度",
+      "signup_url": "https://bailian.console.aliyun.com/",
+      "docs_url": "https://help.aliyun.com/zh/model-studio/",
+      "check_url": "https://help.aliyun.com/zh/model-studio/",
+      "base_url_hint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "model_hint": "qwen-plus 等，以控制台为准",
+      "needs_card": false
+    },
+    {
+      "id": "siliconflow",
+      "name": "硅基流动 · 免费小模型",
+      "vendor": "SiliconFlow",
+      "free_form": "部分小参数模型提供免费调用",
+      "signup_url": "https://cloud.siliconflow.cn/",
+      "docs_url": "https://docs.siliconflow.cn/",
+      "check_url": "https://docs.siliconflow.cn/",
+      "base_url_hint": "https://api.siliconflow.cn/v1",
+      "model_hint": "以官网标注免费的模型 ID 为准",
+      "needs_card": false
+    },
+    {
+      "id": "zhipu",
+      "name": "智谱 · 免费模型",
+      "vendor": "智谱 AI",
+      "free_form": "部分 GLM 模型提供免费调用",
+      "signup_url": "https://open.bigmodel.cn/",
+      "docs_url": "https://docs.bigmodel.cn/",
+      "check_url": "https://docs.bigmodel.cn/",
+      "base_url_hint": "https://open.bigmodel.cn/api/paas/v4",
+      "model_hint": "以官网标注免费的模型 ID 为准",
+      "needs_card": false
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini API · 免费层",
+      "vendor": "Google",
+      "free_form": "AI Studio 提供免费层调用配额（有速率限制）",
+      "signup_url": "https://aistudio.google.com/",
+      "docs_url": "https://ai.google.dev/gemini-api/docs/rate-limits",
+      "check_url": "https://ai.google.dev/gemini-api/docs/rate-limits",
+      "base_url_hint": "见官方文档（OpenAI 兼容端点）",
+      "model_hint": "gemini-*-flash 等",
+      "needs_card": false
+    },
+    {
+      "id": "groq",
+      "name": "Groq · 免费层",
+      "vendor": "Groq",
+      "free_form": "免费层按速率限制提供调用（非按量计费）",
+      "signup_url": "https://console.groq.com/",
+      "docs_url": "https://console.groq.com/docs/rate-limits",
+      "check_url": "https://console.groq.com/docs/rate-limits",
+      "base_url_hint": "https://api.groq.com/openai/v1",
+      "model_hint": "以控制台可用模型为准",
+      "needs_card": false
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral · 免费层",
+      "vendor": "Mistral AI",
+      "free_form": "La Plateforme 提供免费实验层（有速率限制）",
+      "signup_url": "https://console.mistral.ai/",
+      "docs_url": "https://docs.mistral.ai/deployment/laplateforme/tier/",
+      "check_url": "https://docs.mistral.ai/",
+      "base_url_hint": "https://api.mistral.ai/v1",
+      "model_hint": "以控制台可用模型为准",
+      "needs_card": false
+    },
+    {
+      "id": "openrouter-free",
+      "name": "OpenRouter · 免费模型",
+      "vendor": "OpenRouter",
+      "free_form": "平台上标注 $0 的模型可免费调用",
+      "signup_url": "https://openrouter.ai/models?max_price=0",
+      "docs_url": "https://openrouter.ai/docs/quick-start",
+      "check_url": "https://openrouter.ai/docs/quick-start",
+      "base_url_hint": "https://openrouter.ai/api/v1",
+      "model_hint": "在免费模型列表里挑 :free 后缀的模型",
+      "needs_card": false
+    },
+    {
+      "id": "cloudflare-ai",
+      "name": "Workers AI · 每日免费额度",
+      "vendor": "Cloudflare",
+      "free_form": "按天赠送神经单元额度",
+      "signup_url": "https://dash.cloudflare.com/",
+      "docs_url": "https://developers.cloudflare.com/workers-ai/platform/pricing/",
+      "check_url": "https://developers.cloudflare.com/workers-ai/",
+      "base_url_hint": "见官方文档（需 account id）",
+      "model_hint": "以官方模型目录为准",
+      "needs_card": false
+    }
+  ]
+}

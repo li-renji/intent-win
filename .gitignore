@@ -75,3 +75,12 @@ portable/INTENT-Portable/
 portable/dist/
 portable/_factory_tmp/
 portable/_lnk_probe/
+
+# 工作台运行时数据：可能含用户自己填入的 API Key / 设备节点 / 用量 / 浏览器登录态
+workbench/providers.json
+workbench/nodes.json
+workbench/usage.json
+workbench/quota_report.json
+workbench/data/
+workbench/*.tmp
+workbench/*.log

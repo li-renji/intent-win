@@ -34,6 +34,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import ext as _ext                     # 免安装节点 / 用量中心 / 额度雷达
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse, parse_qs
@@ -314,7 +315,7 @@ BIND_PAGE_HTML = """<!DOCTYPE html>
 </style></head>
 <body><div class="card">
   <h1>绑定设备到工作台</h1>
-  <div class="sub">扫码后自动带出配对码；也可手动输入</div>
+  <div class="sub">不用装任何东西 · 绑定后这个页面就是你的设备节点，保持打开即在线</div>
   <div class="code" id="code">%s</div>
   <label>配对码（如页面未自动带出，请手动填写）</label>
   <input id="iCode" placeholder="例如 A1B2C3">
@@ -333,12 +334,14 @@ BIND_PAGE_HTML = """<!DOCTYPE html>
     var msg = document.getElementById('msg');
     msg.textContent=''; msg.className='msg';
     if(!code){ msg.textContent='请填写配对码'; msg.className='msg bad'; return; }
-    var btn = event.target; btn.disabled=true;
+    var btn = document.querySelector('button'); btn.disabled=true;
     fetch('/api/bind',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code,name:name})})
       .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
       .then(function(x){
         if(!x.ok){ msg.textContent = (x.d&&x.d.detail)||'绑定失败'; msg.className='msg bad'; }
-        else { msg.textContent='绑定成功：'+(x.d.device&&x.d.device.name); msg.className='msg ok'; document.getElementById('iCode').value=''; document.getElementById('iName').value=''; }
+        else { msg.textContent='已加入工作台，正在进入设备页…'; msg.className='msg ok';
+               var d=x.d.device||{}; var u='/node?device='+encodeURIComponent(d.id||'')+'&name='+encodeURIComponent(d.name||name||'');
+               setTimeout(function(){ location.href=u; }, 500); }
       })
       .catch(function(e){ msg.textContent='请求异常: '+e; msg.className='msg bad'; })
       .finally(function(){ btn.disabled=false; });
@@ -620,6 +623,8 @@ class _Handler(BaseHTTPRequestHandler):
 
     # ---------------- 路由 ----------------
     def do_GET(self):
+        if _ext.handle(self, "GET", self.path, {}):
+            return
         path = urlparse(self.path).path
         if path in ("/", "/index.html"):
             return self._serve_index()
@@ -639,8 +644,10 @@ class _Handler(BaseHTTPRequestHandler):
         return self._err(404, "未找到: %s" % path)
 
     def do_POST(self):
-        path = urlparse(self.path).path
         body = self._body()
+        if _ext.handle(self, "POST", self.path, body):
+            return
+        path = urlparse(self.path).path
         if path == "/api/devices":
             with _config_lock:
                 cfg = load_config()
@@ -677,6 +684,8 @@ class _Handler(BaseHTTPRequestHandler):
         return self._err(404, "未找到: %s" % path)
 
     def do_PUT(self):
+        if _ext.handle(self, "PUT", self.path, {}):
+            return
         path = urlparse(self.path).path
         seg = [p for p in path.split("/") if p]
         if len(seg) == 3 and seg[0] == "api" and seg[1] == "devices":
@@ -700,6 +709,8 @@ class _Handler(BaseHTTPRequestHandler):
         return self._err(404, "未找到: %s" % path)
 
     def do_DELETE(self):
+        if _ext.handle(self, "DELETE", self.path, {}):
+            return
         path = urlparse(self.path).path
         seg = [p for p in path.split("/") if p]
         if len(seg) == 3 and seg[0] == "api" and seg[1] == "devices":
@@ -723,7 +734,10 @@ def main():
     except Exception:
         port = 3000
     srv = ThreadingHTTPServer((host, port), _Handler)
+    _ext.start_background()
     print("[工作台] 已启动: http://localhost:%d" % port, flush=True)
+    print("[工作台] 其他设备打开 /node 即可免安装加入；用量 /api/usage；额度雷达 /api/quota",
+          flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
