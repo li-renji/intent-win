@@ -46,13 +46,24 @@ EXCLUDE_DIRS = {"__pycache__", ".git", "node_modules", "backups",
                 "Q版赛车少年桌宠工程包", "minimind_data", "验收",
                 "INTENT-Portable", "dist", "release", "_lnk_probe",
                 "_factory_tmp", "_desktop_verify_tmp"}
+# 只放「任何位置都不该随盘」的运行时垃圾。绝不能按文件名放构建脚本：
+# runtime/python/Lib/site-packages 里真有 install.py / publish.py / factory.py，
+# 按名排除会把 pip、openpyxl 的模块一起删掉。
 EXCLUDE_FILES = {"pc_bridge.token", "launch.log", "debug.log",
-                 "_probe_e2e.mp3", "build.py", "verify.py",
-                 "verify_desktop.py", "verify_factory.py", "make_icon.py",
-                 "factory.py", "install.py", "push.py", "publish.py"}
+                 "_probe_e2e.mp3"}
 EXCLUDE_REL = {os.path.join("tools", "api_push.py"),
                os.path.join("tools", "api_wiz_test.py"),
-               os.path.join("security", "verify_safety.py")}
+               os.path.join("security", "verify_safety.py"),
+               os.path.join("portable", "build.py"),
+               os.path.join("portable", "factory.py"),
+               os.path.join("portable", "install.py"),
+               os.path.join("portable", "push.py"),
+               os.path.join("portable", "publish.py"),
+               os.path.join("portable", "verify.py"),
+               os.path.join("portable", "verify_desktop.py"),
+               os.path.join("portable", "verify_factory.py"),
+               os.path.join("portable", "make_icon.py"),
+               os.path.join("portable", "scrub.py")}
 EXCLUDE_EXT = {".pyc", ".pyo", ".log", ".tmp", ".bak", ".new", ".lnk"}
 # 反复重建时，早先版本可能留下的开发文件；每次构建前精确清掉（只删这些）
 MUST_NOT_EXIST = [

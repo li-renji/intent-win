@@ -213,6 +213,13 @@ def main():
           "%d/%d" % (len(code) - len(wrong), len(code)))
     check("runtime 底座未混入云端通道",
           all(not k.startswith("runtime/") for k in code), "0 个")
+    # 回归：早期按文件名排除构建脚本，误删了运行库里同名的 3 个模块
+    rt_must = ["runtime/python/Lib/site-packages/pip/_internal/commands/install.py",
+               "runtime/python/Lib/site-packages/openpyxl/chartsheet/publish.py",
+               "runtime/python/Lib/site-packages/pip/_internal/resolution/resolvelib/factory.py"]
+    check("runtime 同名模块未被误排除",
+          all(os.path.isfile(os.path.join(PAYLOAD, x)) for x in rt_must),
+          "%d/3" % sum(os.path.isfile(os.path.join(PAYLOAD, x)) for x in rt_must))
 
     # ---------- 4. 两个快捷方式 ----------
     links = {}

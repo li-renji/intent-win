@@ -34,11 +34,15 @@ SKIP_DIRS = {"__pycache__", ".git", "node_modules", "_empty_home", "backups",
 SKIP_FILES = {"pc_bridge.token", "launch.log", "debug.log", "_probe_e2e.mp3",
               "PIN-TO-DESKTOP.cmd", "autorun.inf"}
 SKIP_EXT = {".pyc", ".pyo", ".log", ".tmp", ".bak"}
-# 这些只属于构建/验收/发布工具，不进 U 盘镜像
-BUILD_SKIP = {"build.py", "verify.py", "verify_desktop.py", "make_icon.py",
-              "factory.py", "install.py", "push.py", "publish.py",
-              "verify_factory.py", "_probe_lnk.py", "_probe_com.py",
-              "scrub.py"}
+# 这些只属于构建/验收/发布工具，不进 U 盘镜像。按「完整相对路径」匹配，
+# 绝不能按文件名：runtime/python/Lib/site-packages 里真有 install.py /
+# factory.py / publish.py，按名排除会删掉 pip、openpyxl 的模块。
+BUILD_SKIP = {"portable/build.py", "portable/verify.py",
+              "portable/verify_desktop.py", "portable/verify_factory.py",
+              "portable/make_icon.py", "portable/factory.py",
+              "portable/install.py", "portable/push.py", "portable/publish.py",
+              "portable/scrub.py", "portable/_probe_lnk.py",
+              "portable/_probe_com.py"}
 PORTABLE_PORTS = {
     "port_6800": "16800", "port_6801": "16801", "http_port": "16802",
     "mybrowser_cdp_port": "19700", "local_engine_port": "18099",
@@ -206,12 +210,13 @@ def _skip_dir(name):
     return name in SKIP_DIRS
 
 
-def _skip_file(name):
-    return (name in SKIP_FILES or os.path.splitext(name)[1].lower() in SKIP_EXT
-            or (name in BUILD_SKIP))
+def _skip_file(name, rel_path=""):
+    if name in SKIP_FILES or os.path.splitext(name)[1].lower() in SKIP_EXT:
+        return True
+    return os.path.normpath(rel_path).replace("\\", "/") in BUILD_SKIP
 
 
-def _copy_tree(src, dst, hardlink=False):
+def _copy_tree(src, dst, hardlink=False, top=""):
     n = 0
     for dirpath, dirnames, filenames in os.walk(src):
         dirnames[:] = [d for d in dirnames if not _skip_dir(d)]
@@ -219,7 +224,9 @@ def _copy_tree(src, dst, hardlink=False):
         out = dst if rel == "." else os.path.join(dst, rel)
         os.makedirs(out, exist_ok=True)
         for name in filenames:
-            if _skip_file(name):
+            r = os.path.normpath(os.path.join(top, rel, name)) if rel != "." \
+                else os.path.normpath(os.path.join(top, name))
+            if _skip_file(name, r):
                 continue
             s = os.path.join(dirpath, name)
             d = os.path.join(out, name)
@@ -302,7 +309,8 @@ def build():
     # 1) runtime：硬链接（同盘 NTFS，不额外占 1.9GB）
     rt_src = os.path.join(SRC, "runtime")
     if os.path.isdir(rt_src):
-        total += _copy_tree(rt_src, os.path.join(DST, "runtime"), hardlink=True)
+        total += _copy_tree(rt_src, os.path.join(DST, "runtime"),
+                            hardlink=True, top="runtime")
         print("  runtime/ 已链接（Python + WebView2 + Chromium）")
 
     # 2) 代码与数据：真实复制，避免镜像改动影响本体
@@ -314,7 +322,7 @@ def build():
             if d in ("models", "memories"):
                 os.makedirs(os.path.join(DST, d), exist_ok=True)
             continue
-        total += _copy_tree(s, os.path.join(DST, d))
+        total += _copy_tree(s, os.path.join(DST, d), top=d)
     for f in ALLOW_FILES:
         s = os.path.join(SRC, f)
         if os.path.isfile(s):
