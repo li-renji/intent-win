@@ -100,14 +100,19 @@ def update_ref(commit_sha):
 
 
 def git_show(rev, path):
-    p = subprocess.run(["git", "show", "%s:%s" % (rev, path)], capture_output=True)
+    # -c core.quotePath=false：否则中文路径会被 git 转成 "\345\277\253..." 八进制串，
+    # 直接拿去 git show 就会读不到 blob（云端更新源里含中文文件名）。
+    p = subprocess.run(["git", "-c", "core.quotePath=false", "show",
+                        "%s:%s" % (rev, path)], capture_output=True)
     return p.stdout if p.returncode == 0 else None
 
 
 def diff_paths():
     """本地 HEAD 与 origin/main 之间的差异路径集合。"""
-    p = subprocess.run(["git", "diff", "--name-status", "origin/main", "HEAD"],
-                       capture_output=True, text=True)
+    p = subprocess.run(["git", "-c", "core.quotePath=false", "diff",
+                        "--name-status", "origin/main", "HEAD"],
+                       capture_output=True, text=True, encoding="utf-8",
+                       errors="replace")
     out = []
     for line in (p.stdout or "").splitlines():
         parts = line.split("\t")
@@ -131,8 +136,10 @@ def main():
     print("远端 tree : %s" % base_tree)
 
     if all_mode:
-        paths = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD"],
-                               capture_output=True, text=True).stdout.split()
+        paths = subprocess.run(["git", "-c", "core.quotePath=false",
+                                "ls-tree", "-r", "--name-only", "HEAD"],
+                               capture_output=True, text=True,
+                               encoding="utf-8", errors="replace").stdout.splitlines()
         entries = []
         for p in paths:
             data = git_show("HEAD", p)
