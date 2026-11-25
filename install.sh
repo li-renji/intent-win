@@ -2,8 +2,9 @@
 # INTENT Linux 一行命令安装器（无界面核心：终端对话 + 6800/6801/6802 三端口）
 #
 # 一行命令安装（新机只要 Python 3.9+，不需要 Git、不需要 sudo）：
-#   curl -fsSL https://github.com/li-renji/intent-win/raw/main/install.sh | bash
-# 装完以后重装/升级只需敲两个字母：iw
+#   curl -fsSL https://cdn.jsdelivr.net/gh/li-renji/intent-win@main/install.sh | bash
+# 若上面提示连接重置，把 cdn.jsdelivr.net 换成 raw.githubusercontent.com（两者内容一致）。
+# 装完以后重装/升级只需敲两个字母：iw（内置多源自动回退）
 #
 # 装完新开终端敲 intent 即可对话；首次聊天前在 配置.qdai 里填自己的 api_key。
 #
@@ -28,10 +29,12 @@ say() { printf '[INTENT] %s\n' "$*"; }
 die() { printf '[INTENT][ERROR] %s\n' "$*" >&2; exit 1; }
 
 # ---------- 0 只探测源 ----------
+# 多源自动回退：国内网络对 github.com 主域常做 SNI 重置，
+# 故把不走主域的 codeload / jsdelivr CDN 排在前面，代理站兜底。
 SOURCE_URLS=(
   "https://codeload.github.com/$REPO/zip/refs/heads/$BRANCH"
   "https://api.github.com/repos/$REPO/zipball/$BRANCH"
-  "https://ghfast.top/https://codeload.github.com/$REPO/zip/refs/heads/$BRANCH"
+  "https://gh-proxy.com/https://codeload.github.com/$REPO/zip/refs/heads/$BRANCH"
 )
 if [ "${INTENT_CHECK_SOURCES:-0}" = "1" ]; then
   say "探测下载源（不安装）"
@@ -154,13 +157,23 @@ EOF
   say "已写入全局命令：$BIN_DIR/intent"
 
   # 超短别名 iw：重装 / 升级时只敲 iw，不用再输入那条长 URL。
-  # 它重新下载同一份 install.sh 并执行（内容始终跟随 GitHub 最新版）。
-  SHORT_URL="https://github.com/li-renji/intent-win/raw/main/install.sh"
-  cat > "$BIN_DIR/iw" <<EOF
+  # 多个源依次尝试，任一通畅即执行；不用 github.com 主域（易被 SNI 重置）。
+  cat > "$BIN_DIR/iw" <<'IWEOF'
 #!/usr/bin/env bash
-# INTENT 重装/升级快捷命令（等价于那条长的 curl | bash）
-exec curl -fsSL "$SHORT_URL" | bash
-EOF
+# INTENT 重装/升级快捷命令（等价于那条长的 curl | bash，自带多源回退）
+for u in \
+  "https://cdn.jsdelivr.net/gh/li-renji/intent-win@main/install.sh" \
+  "https://raw.githubusercontent.com/li-renji/intent-win/main/install.sh" \
+  "https://github.com/li-renji/intent-win/raw/main/install.sh"; do
+  body="$(curl -fsSL --max-time 30 "$u" 2>/dev/null)"
+  if [ -n "$body" ] && printf '%s' "$body" | head -1 | grep -q '^#!/usr/bin/env bash'; then
+    printf '%s' "$body" | bash
+    exit $?
+  fi
+done
+echo "[INTENT] 所有下载源均失败；检查网络或代理后重试" >&2
+exit 1
+IWEOF
   chmod +x "$BIN_DIR/iw"
   say "已写入超短别名：$BIN_DIR/iw （以后重装/升级只敲 iw）"
 
