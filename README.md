@@ -71,6 +71,27 @@ git push -u origin main
 
 ## 一行命令安装（推荐，新机零配置）
 
+### Linux / macOS（无界面核心：终端对话 + 三端口）
+
+只要有 **Python 3.9+**，不需要 Git、不需要 sudo、不需要装第三方依赖：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/li-renji/intent-win/main/install.sh | bash
+```
+
+装完**新开一个终端**敲 `intent` 即可对话（`intent --status` 看引擎状态）。
+核心链路零第三方依赖；只有读 PDF/Word/Excel/PPT 才需要 `pip install -r requirements-linux.txt`（安装器会尝试自动装，失败也不影响对话）。
+首次聊天前在安装目录的 `配置.qdai` 填自己的 `api_key`。
+
+可用环境变量（跑那行之前设置）：`INTENT_INSTALL_DIR`（默认 `~/.local/share/intent-win`）、
+`INTENT_BIN_DIR`（默认 `~/.local/bin`）、`INTENT_SOURCE_ZIP`（离线安装）、
+`INTENT_NO_PATH=1`（不注册全局命令）、`INTENT_SKIP_DEPS=1`、`INTENT_CHECK_SOURCES=1`。
+
+> Linux 版刻意不装 GUI：pywebview / WebView2 / Chromium / 桌宠 / 系统语音都不需要。
+> 内置浏览器、毛玻璃等 Windows 专属能力在 `--no-gui` 下自动降级，不影响对话与工具。
+
+### Windows（图形界面 + 内置浏览器）
+
 在 **PowerShell** 里粘贴一行即可，不需要 Git、不需要管理员权限、不用预先装 Python：
 
 ```powershell
@@ -203,6 +224,7 @@ agent_confirm_tools=       # 需用户确认的工具（当前界面无交互确
 | **skills** | 技能列表 | 扫描 `skills/` 目录 |
 | **phone** | 手机侧执行 | 把任务交给手机上的奇点 OS 智能体 |
 | **spawn** | 分裂子 Agent | `task` 子任务描述 · `tools` 子 Agent 可用工具（默认同主子 Agent）；深度上限 1 层，结论截断回灌 |
+| **device** | 多设备互联（设备联邦） | `action=status/start/stop/list/discover/pair/send/task/forget`；把会话送到另一台电脑接着聊、派活给另一台电脑执行 |
 
 `tools=spawn,fs,code,screen,browser,memo,skills,phone` —— 未列出的工具不注入 schema、不暴露，**零未用工具 token**。
 
@@ -226,14 +248,23 @@ OpenAI 兼容端点访问它。
 
 ```mermaid
 flowchart LR
-  A[6802 对外 API] --> F[Context.endpoint 解析]
-  B[聊天 UI] --> F
-  C[6800 / Agent 循环] --> F
-  F -->|local 模式 + 引擎 RUNNING| E[本地引擎进程 llama-server]
-  F -->|引擎不可用 + 降级开关| G[云端/既有端点]
+  A[6802 对外 API] --> F[Context.http_upstream 解析]
+  B[聊天 UI] --> G[Context.endpoint 解析]
+  C[6800 / Agent 循环] --> G
+  F -->|http_upstream=local + 引擎 RUNNING| E[本地引擎进程 llama-server]
+  F -->|引擎不可用| G
+  G -->|llm_mode=local + 引擎 RUNNING| E
+  G -->|llm_mode=cloud| P[云端端点]
   E --> M[(models/*.gguf)]
   H[ModelManager] --> M
 ```
+
+> **`llm_mode` 与 `http_upstream` 是两件独立的事**：
+> `llm_mode` 管「Agent 自己用哪个模型思考」，`http_upstream` 管「对外这个 OpenAI API 把谁暴露出去」。
+> 用户要的正是后者——Agent 自带模型运行时，装完就能把内置模型交给别的工具调用。
+> 默认 `http_upstream=local`：引擎在跑就对外暴露本地模型（引擎没起才回落当前 LLM，对外 API 不会死）；
+> 同时 `llm_mode` 保持 `cloud`，因为小模型跑不动 Agent 全量提示词（21 个工具 + 系统提示），
+> 当自己的脑子会明显变慢。要完全离线就把 `llm_mode` 也改成 `local`。
 
 ```
   状态：stopped → starting（退避+抖动轮询健康）→ running
@@ -244,23 +275,41 @@ flowchart LR
 **三条硬约束（已实装）**：就绪等待上限 90s（超时一律失败并给原因）、健康检查指数退避+抖动、
 停止先 TERM 超时再 KILL。**不存在无上限等待或 `while True` 重试。**
 
+**进程生命周期**：引擎以 `CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS` 启动 —— Agent 被强杀/断电，
+引擎仍留在后台（下次启动会被复用，`owns_process=False` 时退出不会误杀用户的进程）；
+Agent 正常退出时走 `atexit` 优雅停机。端口上已有健康引擎时直接**复用**而非报"端口占用"。
+
+**免代理（重要）**：本机端口的请求一律绕过系统代理。国内机器常设 `http_proxy`，
+urllib 默认 opener 会把 `127.0.0.1:8099` 也丢给代理 → 502，表现为「引擎明明活着却探测不到」。
+`llm.py` / `local_engine.py` 已统一处理回环地址免代理；外部工具自己打 6802 时也请关代理或加 `--noproxy`。
+
 **快速开始（三步）**
 
 ```sh
-# 1. 放引擎二进制：下载 llama.cpp Windows CPU 发行包，解压后把 llama-server.exe 路径
-#    填进 配置.qdai 的 local_engine_binary（本机无独显，务必不要设 n-gpu-layers）
+# 0. 一键装好（推荐）：自动下 llama.cpp 运行时 + 模型，并写好 配置.qdai
+python tools/安装本地模型.py --model qwen2.5-1.5b     # 1.1GB / 3GB 内存
+python tools/安装本地模型.py --model qwen2.5-3b       # 2.0GB / 4.5GB 内存
+python tools/安装本地模型.py --model qwen2.5-7b       # 4.7GB / 8GB  内存
+#    （手动放置也行）
+# 1. 放引擎二进制：llama.cpp Windows CPU 发行包解压到 runtime/llama/，
+#    路径填进 配置.qdai 的 local_engine_binary（本机无独显，务必不要设 n-gpu-layers）
 # 2. 放模型：把 GGUF 放进 models/<模型名>/
 python -u -m agent.model_mgr scan                 # 看看识别到几个模型、各自要多大内存
 python -u -m agent.model_mgr recommend 11.8       # 按本机内存推荐：预算内的最大可用模型
 # 3. 启动并对外服务
-#    界面方式：聊天窗左下角设定后可随应用自启（local_engine_autostart=on）
-#    或 llm_mode=local 后：外部程序直接打 http://127.0.0.1:6802/v1/chat/completions
+#    local_engine_autostart=on → 随 Agent 自动起引擎
+#    外部程序直接打 http://127.0.0.1:6802/v1/chat/completions 即由本地引擎作答
 ```
 
 > **本机硬件实测**：Intel Celeron N5095A（4 核 @2.0GHz）、无 NVIDIA 独显（Intel UHD）、物理内存 11.8GB。
 > 结论：只能纯 CPU 推理，建议 **1.5B~3B 的 Q4 量化 GGUF**（约 1~2GB 占用）；
 > 7B 及以上会明显卡顿。实际 token 吞吐以你跑起来后的日志为准，
 > 仓库不提供未经实测的性能数字。
+>
+> **实测吞吐（16 核纯 CPU，Qwen2.5-1.5B Q4_K_M）**：短问答约 1.9s 出结果；
+> 生成速度约 7.5 tok/s。**小模型当 Agent 自己的脑子会慢**（全量提示词 700+ tok + 21 个工具，
+> 一轮 60s 上下）——所以默认让 Agent 自己走云端，本地模型专注做对外 API 服务。
+
 
 **安全**：删除模型不可逆，`ModelManager.delete()` 未提供 `confirm=True` 时**一律拒绝执行**；
 UI 接入时须弹二次确认并要求用户输入模型 id 复核。
@@ -342,6 +391,73 @@ qd-agent-win/
 - 测试：`python -u test_pc_bridge.py`（18 项：全接口 + token 拒绝 + root 越界拒绝）
 - **知识库接口**（v5）：`/kb/stats` 看索引状态、`/kb/search?kw=关键词` 按文件名检索——
   手机端与 PC 端 Agent 共用同一份全机文件索引
+
+## 5.5 设备联邦：一台电脑管理多台电脑（v7 新增）
+
+`agent/federation.py`，纯标准库，独立端口 **6803**。
+
+**先说清技术事实**：Windows 上不存在「把一个活着的窗口搬到另一台机器继续跑」的字面实现——
+窗口背后是进程、句柄、显存与 DLL 地址空间，跨机搬迁只有虚拟机/容器热迁移做得到，代价是整台机器一起搬。
+真正能迁的是**会话与任务状态**，窗口只是外壳。本模块做的就是这层「外壳之下的连续性」：
+
+| 层 | 能力 | 迁走的东西 |
+| --- | --- | --- |
+| 会话迁移 | 这台聊到一半 → 那台落地成新会话，界面自动切过去接着聊 | 消息全文、facts 事实表、长期记忆、未到期提醒、交接说明 |
+| 任务委派 | 这台派活 → 那台用它自己的模型与工具执行 → 进度流式回传 | 任务描述；回传 text / tool / tool_result / done |
+| 设备管理 | 一台主控看到所有受控机状态，逐台派活、逐台解除配对 | 设备身份、能力、在线状态 |
+
+**迁不走的**：本机绝对路径、进程句柄、浏览器登录态、kb 索引——这些天生属于那台机器，不打包。
+
+### 用法（全程在对话里说人话即可，Agent 调 `device` 工具）
+
+```
+两台电脑都先开启：  「开启设备互联」        → device start（本次运行有效）
+长期开启：          配置.qdai 里 federation_enabled=on
+受控端拿配对码：    「显示本机配对码」      → device status（6 位 hex，15 分钟有效、一次性）
+主控端配对：        「配对 192.168.3.9，码 A1B2C3」 → device pair
+找同网段设备：      「找找局域网里的设备」  → device discover
+把当前会话送过去：  「把这个会话送到工作机」→ device send（对端界面自动切到该会话）
+派活：              「让工作机查一下…」    → device task（需受控端 federation_allow_task=on）
+解除配对：          「忘掉工作机」          → device forget（两端同时清除）
+```
+
+### 安全模型（默认全关，逐层放开）
+
+1. **默认不监听**：`federation_enabled=off`，显式开启或 `device start` 才起服务
+2. **绝不暴露 6801**：工具总线无鉴权，暴露局域网等于开放远程任意代码执行。
+   联邦走自己的 6803 + 强制 Bearer，与 6800/6801/6802 完全隔离（已实测局域网不可达）
+3. **配对码一次性**：6 位 hex、15 分钟过期、用过即废；每 IP 5 分钟内失败 20 次即限频
+4. **受控端不存明文 token**：只存 sha256，明文仅在配对响应里出现一次；`compare_digest` 比对
+5. **能力分级**：`status` / `session` 默认授予，**`task` 默认不授予**
+6. **远程任务工具白名单**：默认 `web,browser,screen,skills,kb,memo,remind`，
+   **不含 `code` / `fs` 写**；插件工具是无条件注册且能跑任意命令的，因此在白名单处**二次收口**剔除
+7. **只能撤销自己的配对**；请求体上限 8MB；审计写 `federation.log`（不记会话原文）
+8. `devices.json`（主控段含明文 token）与 `device.json` 均已入 `.gitignore`，
+   且 `devices.json` 被 `safety.guard_path` 当凭证文件拦截
+
+### 配置项（`配置.qdai`）
+
+```
+federation_enabled=off        # on=随 Agent 自启监听
+federation_host=0.0.0.0       # 127.0.0.1=只本机（等于关闭互联）
+federation_port=6803
+federation_name=              # 留空=用计算机名
+federation_allow_task=off     # on 才允许已配对设备在本机跑任务
+federation_task_tools=        # 留空=默认白名单
+```
+
+首次运行 Windows 防火墙弹窗点**允许**（专用网络）。
+
+### 验收
+
+```
+runtime/python/python.exe -u tests/test_federation.py       # 60 项：协议/鉴权/配对/能力/限频/凭证保护
+runtime/python/python.exe -u tests/test_federation_e2e.py   # 30 项：两个真实 Api 宿主，会话真落盘、AgentLoop 真跑
+runtime/python/python.exe -u tests/verify_federation_lan.py # 10 项：走真实局域网 IP + 6801 红线复核
+```
+
+其中 e2e 含一条攻击性验证：让远端模型故意要求调用白名单外的 `code` 去写文件，
+断言**被拒且标记文件绝不生成**。
 
 ## 6. 上下文经济性：像 pi 一样省 token（v5 新增）
 

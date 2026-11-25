@@ -13,6 +13,15 @@ import re
 import shutil
 import subprocess
 
+import sys as _sys
+import os as _os
+
+# MCP 客户端（tools/mcp_client.py，纯标准库）：让本体消费外部 MCP server 的工具
+_TOOLS_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "tools")
+if _TOOLS_DIR not in _sys.path:
+    _sys.path.insert(0, _TOOLS_DIR)
+from mcp_client import MCPClient
+
 from . import econ
 from . import safety
 from .safety import SecurityError
@@ -34,6 +43,38 @@ def _fmt_size(n):
 # 每个工具的 OpenAI function-calling schema（模型能看懂的自描述）
 # 未在 配置.qdai 的 tools= 里列出的工具不会出现在这里 → 零未用工具 token
 TOOL_SCHEMAS = {
+    "device": {
+        "type": "function",
+        "function": {
+            "name": "device",
+            "description": (
+                "管理已配对的其他电脑（设备联邦），把会话与任务跨设备转移。"
+                "action：status 本机状态与配对码；start/stop 开关本机联邦服务；"
+                "list 列出已配对设备；discover 扫本网段找 intent 设备；"
+                "pair 用对方屏幕上的配对码配对（要 host+code）；"
+                "send 把当前会话送到某台设备接着聊（要 to）；"
+                "task 派任务给某台设备执行并回传结果（要 to+task）；"
+                "forget 解除与某台设备的配对（要 to）。"
+                "注意：跨设备转移的是会话与任务状态，不是窗口进程本身。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string",
+                               "enum": ["status", "start", "stop", "list", "discover",
+                                        "pair", "send", "task", "forget"]},
+                    "to": {"type": "string",
+                           "description": "目标设备：名称 / device_id / IP"},
+                    "host": {"type": "string", "description": "pair 时对方的局域网 IP"},
+                    "code": {"type": "string", "description": "pair 时对方显示的 6 位配对码"},
+                    "port": {"type": "integer", "description": "对方联邦端口，默认 6803"},
+                    "task": {"type": "string", "description": "action=task 时要对方干的活"},
+                    "note": {"type": "string", "description": "action=send 时附一句交接说明"},
+                },
+                "required": ["action"],
+            },
+        },
+    },
     "spawn": {
         "type": "function",
         "function": {
@@ -421,8 +462,10 @@ class ToolBus:
         self._spawn_depth = 0       # 递归深度，防止子 Agent 再分裂
         self._current_endpoint = None  # 主任务当前模型端点，供子 Agent 复用
         self.extra_schemas = {}   # 插件工具自带的 schema（不在 TOOL_SCHEMAS 里）
+        self._mcp_clients = []    # 常驻 MCP server 子进程客户端
         self._register_enabled()
         self._register_plugins()
+        self._register_mcp_servers()
 
     # ---- 注册（仅配置清单内的工具） ----
     def _register_enabled(self):
@@ -464,6 +507,76 @@ class ToolBus:
             return "插件命令超时（%d 秒）" % timeout
         except Exception as e:
             return "插件执行失败: %s" % e
+
+    # ---- MCP server 桥接：把外部 MCP server 的工具注册为本体能调用的工具 ----
+    def _register_mcp_servers(self):
+        """读 mcp_servers.json，连每个 server，把对端工具挂成 mcp__<server>__<tool>。
+
+        默认不加载：仅当项目根存在 mcp_servers.json 才生效，不影响既有稳定性。
+        单个 server 失败不阻断其它 server。
+        """
+        cfg_path = os.path.join(_PROJECT_ROOT_TPL, "mcp_servers.json")
+        if not os.path.isfile(cfg_path):
+            return
+        try:
+            with open(cfg_path, encoding="utf-8") as f:
+                servers = json.load(f)
+        except Exception:
+            return
+        if not isinstance(servers, list):
+            return
+        for spec in servers:
+            name = (spec.get("name") or "mcp").strip()
+            command = spec.get("command")
+            if not command:
+                continue
+            try:
+                client = MCPClient(
+                    command,
+                    args=spec.get("args") or [],
+                    env=spec.get("env") or {},
+                    cwd=spec.get("cwd") or _PROJECT_ROOT_TPL,
+                ).connect()
+                tools = client.list_tools()
+            except Exception:
+                # 单个 server 连不上：跳过，不影响其它
+                continue
+            for t in tools:
+                tname = t.get("name")
+                if not tname:
+                    continue
+                handler_name = "mcp__%s__%s" % (name, tname)
+                if handler_name in self.handlers:
+                    continue
+                sch = {
+                    "type": "function",
+                    "function": {
+                        "name": handler_name,
+                        "description": t.get("description") or handler_name,
+                        "parameters": t.get("inputSchema")
+                        or {"type": "object", "properties": {}},
+                    },
+                }
+                self.extra_schemas[handler_name] = sch
+                self.handlers[handler_name] = self._make_mcp_handler(client, tname)
+            self._mcp_clients.append(client)
+
+    def _make_mcp_handler(self, client, tname):
+        def handler(args):
+            try:
+                return client.call_tool(tname, args or {})
+            except Exception as e:
+                return "MCP 工具调用失败: %s" % e
+        return handler
+
+    def close_mcp(self):
+        """退出时终止常驻 MCP server 子进程。"""
+        for c in self._mcp_clients:
+            try:
+                c.close()
+            except Exception:
+                pass
+        self._mcp_clients = []
 
     def enabled(self):
         return list(self.handlers)
@@ -525,7 +638,9 @@ class ToolBus:
         p = str(raw or "").strip().strip('"').strip("'")
         if not p:
             if default_desktop:
-                return os.path.join(os.path.expanduser("~"), "Desktop")
+                desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+                # Linux 通常没有 ~/Desktop，回退到 home，避免空路径工具失效
+                return desktop if os.path.isdir(desktop) else os.path.expanduser("~")
             return os.getcwd()
         p = os.path.expanduser(p)
         if not os.path.isabs(p):
@@ -746,7 +861,11 @@ class ToolBus:
         if lang == "python":
             cmd = [_sys.executable, "-c", code]
         elif lang == "shell":
-            cmd = ["cmd", "/c", code]
+            # Windows 用 cmd，Linux/macOS 用 sh —— 让核心代码工具跨平台可用
+            if os.name == "nt":
+                cmd = ["cmd", "/c", code]
+            else:
+                cmd = ["/bin/sh", "-c", code]
         else:
             return "未知 lang: %s（可用 python/shell）" % lang
         try:
@@ -863,6 +982,136 @@ class ToolBus:
             return "上下文调试未启用"
         op = str(args.get("op", "inspect")).strip() or "inspect"
         return self._ctx_handler(op, args)
+
+    # ---- device：设备联邦（一台电脑管理多台电脑）----
+    _federation = None
+    _fed_session = None
+
+    def attach_federation(self, fed, session_provider=None):
+        """注入联邦管理器与「取当前会话」回调（都由 app.py 提供）。"""
+        self._federation = fed
+        self._fed_session = session_provider
+
+    def _tool_device(self, args):
+        fed = self._federation
+        if fed is None:
+            return "设备联邦未接线（宿主未注入）"
+        from .federation import build_payload, lan_ip
+        action = str(args.get("action", "")).strip().lower()
+        to = str(args.get("to", "")).strip()
+
+        if action == "status":
+            st = fed.status()
+            lines = ["本机设备：%s（id %s）" % (st.get("name"), st.get("device_id")),
+                     "联邦服务：%s，端口 %s" % ("运行中" if st.get("running") else "未启动",
+                                              st.get("port")),
+                     "可授予能力：%s" % ",".join(st.get("caps", [])),
+                     "已配对：我管 %d 台 / 管我的 %d 台" % (
+                         st.get("paired_outbound", 0), st.get("paired_inbound", 0))]
+            if st.get("running"):
+                lines.append("本机配对码：%s（15 分钟有效、一次性）" % fed.peek_code())
+                lines.append("在另一台电脑上执行：device pair host=%s code=%s"
+                             % (lan_ip(), fed.peek_code()))
+            else:
+                lines.append("开启：device start（本次运行有效；长期开启在 配置.qdai 设 "
+                             "federation_enabled=on）")
+            return "\n".join(lines)
+
+        if action == "start":
+            fed.enabled = True
+            ok, msg = fed.start()
+            if not ok:
+                return "开启失败：" + msg
+            return "已开启设备联邦：%s\n本机配对码 %s，地址 %s:%d" % (
+                msg, fed.peek_code(), lan_ip(), fed.port)
+
+        if action == "stop":
+            fed.stop()
+            return "已停止设备联邦服务（已配对关系保留）"
+
+        if action == "list":
+            outs = fed.peers.outbound()
+            if not outs:
+                return ("还没有配对任何设备。先 device discover 找同网段的 intent 设备，"
+                        "再 device pair 配对。")
+            lines = ["我管理的设备（%d 台）：" % len(outs)]
+            for p in outs:
+                lines.append("  · %s（id %s）%s:%d 能力=%s" % (
+                    p.get("name"), p.get("device_id"), p.get("host"), p.get("port"),
+                    ",".join(p.get("caps", [])) or "无"))
+            ins = fed.peers.inbound()
+            if ins:
+                lines.append("管理我的设备（%d 台）：%s" % (
+                    len(ins), "、".join(i.get("name", "?") for i in ins)))
+            return "\n".join(lines)
+
+        if action == "discover":
+            found = fed.discover()
+            if not found:
+                return ("本网段没发现开着联邦服务的 intent 设备。对方需先 device start，"
+                        "且两台在同一局域网、防火墙放行 %d 端口。" % fed.port)
+            lines = ["发现 %d 台：" % len(found)]
+            for f in found:
+                lines.append("  · %s %s:%d 能力=%s%s" % (
+                    f.get("name"), f.get("host"), f.get("port"),
+                    ",".join(f.get("caps", [])), "（已配对）" if f.get("paired") else ""))
+            return "\n".join(lines)
+
+        if action == "pair":
+            host = str(args.get("host", "")).strip()
+            code = str(args.get("code", "")).strip()
+            if not host or not code:
+                return "pair 需要 host（对方 IP）与 code（对方屏幕上的 6 位配对码）"
+            res = fed.pair_with(host, code, port=args.get("port") or None)
+            if not res.get("ok"):
+                return "配对失败：" + res.get("error", "")
+            return "已配对 %s（id %s），能力：%s" % (
+                res.get("name"), res.get("device_id"), ",".join(res.get("caps", [])))
+
+        if action == "send":
+            if not to:
+                return "send 需要 to（目标设备名称 / id / IP）"
+            if self._fed_session is None:
+                return "宿主未提供当前会话"
+            s = self._fed_session()
+            if not s or not s.get("messages"):
+                return "当前会话是空的，没有可迁移的内容"
+            payload = build_payload(fed.identity, s, memories=s.get("memories"),
+                                    reminders=s.get("reminders"), note=args.get("note", ""))
+            res = fed.send_session(to, payload)
+            if not res.get("ok"):
+                return "迁移失败：" + res.get("error", "")
+            return ("会话已送到 %s，在对端落地为「%s」（id %s，%d 条消息）。"
+                    "在对端界面即可接着聊。" % (
+                        to, res.get("title"), res.get("session_id"), len(s["messages"])))
+
+        if action == "task":
+            task = str(args.get("task", "")).strip()
+            if not to or not task:
+                return "task 需要 to（目标设备）与 task（要干的活）"
+            out = []
+            for kind, data in fed.dispatch(to, task):
+                if kind == "text":
+                    out.append(str(data))
+                elif kind == "tool":
+                    out.append("[对方调用工具] %s" % (data or {}).get("name", "?"))
+                elif kind == "error":
+                    out.append("[错误] %s" % data)
+                elif kind == "done":
+                    c = (data or {}).get("content")
+                    if c:
+                        out.append(str(c))
+            text = "\n".join(x for x in out if x).strip()
+            return text[:self.max_chars] or "对方没有产出内容"
+
+        if action == "forget":
+            if not to:
+                return "forget 需要 to（目标设备）"
+            res = fed.forget(to)
+            return "已解除配对" if res.get("ok") else "解除失败：" + res.get("error", "")
+
+        return ("未知 action：%s（可用 status/start/stop/list/discover/pair/send/task/forget）"
+                % action)
 
     # ---- spawn：分裂子 Agent ----
     def attach_spawn(self, runner):

@@ -1,0 +1,18 @@
+# INTENT Linux 无界面核心依赖清单
+#
+# 核心链路（chat.py -> agent.main --no-gui -> 三端口）只用 Python 标准库，
+# 不需要 pywebview / pythonnet / WebView2 / 内置 Chromium —— 这些 Windows GUI
+# 依赖在 Linux 版里刻意不装。
+#
+# 安装（用你自己的 Python 3，>=3.9）：
+#   python3 -m pip install -r requirements-linux.txt
+#
+# 文档读取（docgen / read_doc）为可选增强：不装也能跑核心对话，
+# 只是读到 PDF/Word/Excel/PPT 时会提示缺库；需要就保留下面四行。
+PyPDF2>=3.0
+python-docx>=1.1
+openpyxl>=3.1
+python-pptx>=0.6
+
+# 说明：推理、工具总线、Agent 循环、CDP 客户端、安全校验全部是标准库实现。
+# 本地推理走托管 llama-server 子进程（需 Linux 版二进制，属后续阶段，本版不含）。

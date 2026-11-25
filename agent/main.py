@@ -40,7 +40,7 @@ async def main():
     if s6802:
         servers.append(s6802)
 
-    print("intent（Windows Agent）就绪。工具清单: %s" % (", ".join(bus.enabled()) or "无"))
+    print("intent Agent 就绪。工具清单: %s" % (", ".join(bus.enabled()) or "无"))
     try:
         await asyncio.Event().wait()  # 常驻
     finally:
