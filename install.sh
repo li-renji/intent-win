@@ -2,7 +2,8 @@
 # INTENT Linux 一行命令安装器（无界面核心：终端对话 + 6800/6801/6802 三端口）
 #
 # 一行命令安装（新机只要 Python 3.9+，不需要 Git、不需要 sudo）：
-#   curl -fsSL https://raw.githubusercontent.com/li-renji/intent-win/main/install.sh | bash
+#   curl -fsSL https://github.com/li-renji/intent-win/raw/main/install.sh | bash
+# 装完以后重装/升级只需敲两个字母：iw
 #
 # 装完新开终端敲 intent 即可对话；首次聊天前在 配置.qdai 里填自己的 api_key。
 #
@@ -151,6 +152,17 @@ exec "$PYSHEBANG" -u "$CAT" "\$@"
 EOF
   chmod +x "$BIN_DIR/intent"
   say "已写入全局命令：$BIN_DIR/intent"
+
+  # 超短别名 iw：重装 / 升级时只敲 iw，不用再输入那条长 URL。
+  # 它重新下载同一份 install.sh 并执行（内容始终跟随 GitHub 最新版）。
+  SHORT_URL="https://github.com/li-renji/intent-win/raw/main/install.sh"
+  cat > "$BIN_DIR/iw" <<EOF
+#!/usr/bin/env bash
+# INTENT 重装/升级快捷命令（等价于那条长的 curl | bash）
+exec curl -fsSL "$SHORT_URL" | bash
+EOF
+  chmod +x "$BIN_DIR/iw"
+  say "已写入超短别名：$BIN_DIR/iw （以后重装/升级只敲 iw）"
 
   case ":${PATH}:" in
     *":$BIN_DIR:"*) say "PATH 已含 $BIN_DIR" ;;

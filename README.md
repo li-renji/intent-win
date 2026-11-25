@@ -76,10 +76,12 @@ git push -u origin main
 只要有 **Python 3.9+**，不需要 Git、不需要 sudo、不需要装第三方依赖：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/li-renji/intent-win/main/install.sh | bash
+curl -fsSL https://github.com/li-renji/intent-win/raw/main/install.sh | bash
 ```
 
 装完**新开一个终端**敲 `intent` 即可对话（`intent --status` 看引擎状态）。
+以后**重装 / 升级只需敲两个字母** `iw`（安装器会自动注册这个超短别名，等价于上面那条长命令，且始终拉最新版）。
+
 核心链路零第三方依赖；只有读 PDF/Word/Excel/PPT 才需要 `pip install -r requirements-linux.txt`（安装器会尝试自动装，失败也不影响对话）。
 首次聊天前在安装目录的 `配置.qdai` 填自己的 `api_key`。
 
